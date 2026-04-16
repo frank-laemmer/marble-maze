@@ -1,0 +1,17 @@
+# Godot
+.godot/
+*.translation
+/android/
+
+# Builds
+builds/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Videos
+*.mp4
+
+# Claude Code
+.claude/

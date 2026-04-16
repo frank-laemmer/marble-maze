@@ -1,0 +1,15 @@
+!name=Look and see
+!timer=180
+_____________
+_M.M_M_MVMVM_
+_.S.___V___V_
+_M.MVMVM_M_M_
+___________V_
+_M_M_M_M_M_M_
+___________V_
+_M_M_MVMVMVM_
+_____V_______
+_M_M_M_M_M.M_
+_____V___.G._
+_M_M_MVMVM.M_
+_____________

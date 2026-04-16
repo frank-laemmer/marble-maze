@@ -1,0 +1,11 @@
+!name=Now you see me
+!timer=50
+IIIIIIIII
+ISI.....I
+I.I.III.I
+I.IMMMI.I
+I.IMMMI.I
+I.IMMMI.I
+I.III.I.I
+I.....IGI
+IIIIIIIII
