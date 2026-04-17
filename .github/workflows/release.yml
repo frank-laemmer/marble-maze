@@ -29,6 +29,12 @@ jobs:
           mv /root/.local/share/godot/export_templates/4.6.stable/* \
              ~/.local/share/godot/export_templates/${GODOT_VERSION}.stable/
 
+      - name: Patch version from tag
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          sed -i "s|application/short_version=\"[^\"]*\"|application/short_version=\"${VERSION}\"|" export_presets.cfg
+          sed -i "s|application/version=\"[^\"]*\"|application/version=\"${VERSION}\"|" export_presets.cfg
+
       - name: Create build directories
         run: mkdir -p builds/web builds/windows builds/linux builds/macos
 
