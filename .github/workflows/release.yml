@@ -73,3 +73,9 @@ jobs:
           butler push builds/windows      ${ITCH_USER}/${ITCH_GAME}:windows
           butler push builds/linux        ${ITCH_USER}/${ITCH_GAME}:linux
           butler push builds/macos/MarbleMaze.zip ${ITCH_USER}/${ITCH_GAME}:macos
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: builds/web

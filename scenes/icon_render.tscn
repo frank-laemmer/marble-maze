@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://ewdqt2ytagqp"]
+
+[ext_resource type="Script" uid="uid://c5m34us0yqv6f" path="res://scripts/icon_render.gd" id="1"]
+
+[node name="IconRender" type="Node" unique_id=1217268666]
+script = ExtResource("1")

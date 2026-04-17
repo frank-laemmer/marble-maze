@@ -1,26 +1,66 @@
 # Marble Maze
 
-A 3D marble maze game built with Godot 4.6. Guide your marble through increasingly tricky mazes before the timer runs out.
+A 3D marble maze game inspired by the 'Marble It Up!' series. Guide your marble from the Start tile to the Goal tile before the timer runs out. Unlock all built-in levels. Create your own levels with the level editor. Find short cuts and cheat modes for speed runs.
 
-Play it on [itch.io](https://franktheprank.itch.io/marble-maze).
+Play it in your browser on [GitHub Pages](https://frank-laemmer.github.io/marble-maze/) or [itch.io](https://franktheprank.itch.io/marble-maze).
 
-## Controls
+## Download
 
-| Action | Keyboard | Gamepad |
-|---|---|---|
-| Move | WASD | Left stick |
-| Jump | Space | A / Cross |
-| Rotate camera | Arrow keys | Right stick |
-
-Touch controls are supported on mobile.
+| Platform | Link |
+| :------- | :--- |
+| Windows  | [marble-maze-windows.zip](https://github.com/frank-laemmer/marble-maze/releases/latest/download/marble-maze-windows.zip) |
+| Linux    | [marble-maze-linux.zip](https://github.com/frank-laemmer/marble-maze/releases/latest/download/marble-maze-linux.zip) |
+| macOS    | [marble-maze-macos.zip](https://github.com/frank-laemmer/marble-maze/releases/latest/download/marble-maze-macos.zip) |
+| Web      | [marble-maze-web.zip](https://github.com/frank-laemmer/marble-maze/releases/latest/download/marble-maze-web.zip) |
 
 ## Features
 
-- 14 levels with a built-in level editor to create your own
+- 14 levels
+- Level editor to create your own
 - Minimap
-- 180-second countdown per level
+- Fun tiles
+- Speed runs
 
-## Building
+## How to play
+
+### Controls
+
+| Action          | Keyboard    | Gamepad        |
+| :-------------- | :---------- | :------------- |
+| Move            | WASD        | Left stick     |
+| Jump            | Space       | A / Cross      |
+| Rotate camera   | Arrow keys  | Right stick    |
+
+Touch controls are supported on mobile.
+
+### Objective
+
+Guide your marble from the Start tile to the Goal tile before the timer runs out.
+
+### Hazards
+
+Falling off an edge respawns you at the start tile. The timer keeps running — don't waste time!
+
+### Movement
+
+It's best played with a game controller. One stick to control the marble, another to control the camera. Hold to build speed, release to slow down, steer against to brake.
+
+### Main tiles
+
+- Floor — roll across it normally
+- Wall — solid obstacle, blocks movement
+- Map tile — reveals nearby walls on the minimap
+
+## Credits
+
+- Frank Lämmer 2026
+- Built with Godot 4.6
+- Coded by Claude Code
+
+
+## Dev notes
+
+### Building
 
 Open `project.godot` in Godot 4.6 and press Play.
 
