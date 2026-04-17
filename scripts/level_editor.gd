@@ -46,6 +46,8 @@ var current_tool: int = TileType.FLOOR
 var level_name: String = "my_level"   # file basename (used for save path)
 var level_title: String = ""           # display name stored as !name= metadata
 var level_timer: int = 180             # time limit stored as !timer= metadata
+var level_tilt_x: int = 0  # degrees around X axis; stored as !tilt=x,z
+var level_tilt_z: int = 0  # degrees around Z axis
 var has_start: bool = false
 var has_end:   bool = false
 
@@ -57,6 +59,8 @@ var _status_label: Label
 var _name_edit: LineEdit
 var _title_edit: LineEdit
 var _timer_spin: SpinBox
+var _tilt_x_spin: SpinBox
+var _tilt_z_spin: SpinBox
 var _rows_spin: SpinBox
 var _cols_spin: SpinBox
 var _tile_buttons: Array = []
@@ -146,6 +150,8 @@ func _level_to_string() -> String:
 		title = level_name
 	lines.append("!name=" + title)
 	lines.append("!timer=" + str(level_timer))
+	if level_tilt_x != 0 or level_tilt_z != 0:
+		lines.append("!tilt=" + str(level_tilt_x) + "," + str(level_tilt_z))
 	# Write grid rows
 	for row in grid:
 		var line := ""
@@ -165,6 +171,8 @@ func _load_from_string(content: String) -> void:
 	# Reset metadata before parsing
 	level_timer = 180
 	level_title = ""
+	level_tilt_x = 0
+	level_tilt_z = 0
 
 	var rows: Array = []
 	for line in content.split("\n"):
@@ -176,6 +184,10 @@ func _load_from_string(content: String) -> void:
 				match kv[0]:
 					"name":  level_title = kv[1]
 					"timer": level_timer = kv[1].to_int()
+					"tilt":
+						var tp := kv[1].split(",")
+						level_tilt_x = tp[0].to_int()
+						level_tilt_z = tp[1].to_int() if tp.size() > 1 else 0
 		else:
 			# Grid row — strip spaces/tabs for backward compat with "S # . #" format.
 			var stripped := ""
@@ -203,8 +215,10 @@ func _load_from_string(content: String) -> void:
 			if t == TileType.END:   has_end   = true
 
 	# Sync UI fields
-	if _title_edit: _title_edit.text = level_title
+	if _title_edit: _title_edit.text  = level_title
 	if _timer_spin: _timer_spin.value = level_timer
+	if _tilt_x_spin: _tilt_x_spin.value = level_tilt_x
+	if _tilt_z_spin: _tilt_z_spin.value = level_tilt_z
 	if _rows_spin:  _rows_spin.value  = grid_rows
 	if _cols_spin:  _cols_spin.value  = grid_cols
 	_sync_canvas()
@@ -298,6 +312,31 @@ func _build_toolbar() -> PanelContainer:
 	_timer_spin.custom_minimum_size = Vector2(90, 0)
 	_timer_spin.value_changed.connect(func(v: float): level_timer = int(v))
 	row1.add_child(_timer_spin)
+	_hspace(row1, 14)
+
+	_lbl(row1, "Tilt X:")
+	_hspace(row1, 4)
+	_tilt_x_spin = SpinBox.new()
+	_tilt_x_spin.min_value = -30
+	_tilt_x_spin.max_value = 30
+	_tilt_x_spin.step = 1
+	_tilt_x_spin.value = level_tilt_x
+	_tilt_x_spin.suffix = "°"
+	_tilt_x_spin.custom_minimum_size = Vector2(78, 0)
+	_tilt_x_spin.value_changed.connect(func(v: float): level_tilt_x = int(v))
+	row1.add_child(_tilt_x_spin)
+	_hspace(row1, 10)
+	_lbl(row1, "Tilt Z:")
+	_hspace(row1, 4)
+	_tilt_z_spin = SpinBox.new()
+	_tilt_z_spin.min_value = -30
+	_tilt_z_spin.max_value = 30
+	_tilt_z_spin.step = 1
+	_tilt_z_spin.value = level_tilt_z
+	_tilt_z_spin.suffix = "°"
+	_tilt_z_spin.custom_minimum_size = Vector2(78, 0)
+	_tilt_z_spin.value_changed.connect(func(v: float): level_tilt_z = int(v))
+	row1.add_child(_tilt_z_spin)
 	_hspace(row1, 14)
 
 	_lbl(row1, "Size:")
@@ -480,8 +519,9 @@ func _refresh_status() -> void:
 	var warn := ""
 	if not has_start: warn += "  ⚠ No Start"
 	if not has_end:   warn += "  ⚠ No End"
-	_status_label.text = "  Tool: %s   Grid: %d × %d   File: \"%s\"   Timer: %ds%s" % [
-		TILE_LABELS[current_tool], grid_cols, grid_rows, level_name, level_timer, warn
+	var tilt_info := ("   Tilt X:%d° Z:%d°" % [level_tilt_x, level_tilt_z]) if (level_tilt_x != 0 or level_tilt_z != 0) else ""
+	_status_label.text = "  Tool: %s   Grid: %d × %d   File: \"%s\"   Timer: %ds%s%s" % [
+		TILE_LABELS[current_tool], grid_cols, grid_rows, level_name, level_timer, tilt_info, warn
 	]
 
 # ── Tool / zoom ────────────────────────────────────────────────────────────────
@@ -513,9 +553,13 @@ func _on_new() -> void:
 	level_name  = "my_level"
 	level_title = ""
 	level_timer = 180
+	level_tilt_x = 0
+	level_tilt_z = 0
 	if _name_edit:  _name_edit.text  = level_name
 	if _title_edit: _title_edit.text = level_title
 	if _timer_spin: _timer_spin.value = level_timer
+	if _tilt_x_spin: _tilt_x_spin.value = level_tilt_x
+	if _tilt_z_spin: _tilt_z_spin.value = level_tilt_z
 	_sync_canvas()
 	_refresh_status()
 

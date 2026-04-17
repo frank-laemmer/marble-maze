@@ -4,6 +4,7 @@ const FORCE: float = 38.0
 const MAX_SPEED: float = 22.0
 const JUMP_IMPULSE: float = 10.0
 const COUNTER_STEER_MULT: float = 2.5  # force boost when input opposes current velocity
+const UPHILL_PENALTY: float = 1.7     # scales how much slope gravity resists uphill input
 
 const JUMP_BUFFER_FRAMES: int = 12  # frames a buffered jump input stays valid
 const COYOTE_FRAMES: int = 5        # frames after leaving ground where jump still works
@@ -206,12 +207,14 @@ func _physics_process(delta: float) -> void:
 
 	if abs(fwd_in) > 0.01:
 		var dir := forward * fwd_in
-		var mult := COUNTER_STEER_MULT if flat.dot(dir) < 0.0 else 1.0
+		var tilt_mult := _uphill_force_mult(dir)
+		var mult := tilt_mult if tilt_mult < 1.0 else (COUNTER_STEER_MULT if flat.dot(dir) < 0.0 else 1.0)
 		apply_central_force(dir * FORCE * mult)
 
 	if abs(str_in) > 0.01:
 		var dir := right * str_in
-		var mult := COUNTER_STEER_MULT if flat.dot(dir) < 0.0 else 1.0
+		var tilt_mult := _uphill_force_mult(dir)
+		var mult := tilt_mult if tilt_mult < 1.0 else (COUNTER_STEER_MULT if flat.dot(dir) < 0.0 else 1.0)
 		apply_central_force(dir * FORCE * mult)
 
 	# ── Speed cap ──────────────────────────────────────────────────────────────
@@ -219,6 +222,24 @@ func _physics_process(delta: float) -> void:
 	if flat.length() > MAX_SPEED:
 		var clamped := flat.normalized() * MAX_SPEED
 		linear_velocity = Vector3(clamped.x, linear_velocity.y, clamped.z)
+
+
+## Returns a force multiplier < 1.0 when `dir` has an uphill component on a tilted level,
+## suppressing both the counter-steer bonus and overall force so the marble struggles uphill.
+## Returns 1.0 on flat levels or when moving downhill / perpendicular.
+func _uphill_force_mult(dir: Vector3) -> float:
+	var tx := deg_to_rad(float(LevelLoader.level_tilt_x))
+	var tz := deg_to_rad(float(LevelLoader.level_tilt_z))
+	# World XZ direction that gravity pulls the marble along the tilted floor.
+	# tilt_x (rotation around X): +Z side descends  → downhill = +Z
+	# tilt_z (rotation around Z): -X side descends  → downhill = -X
+	var downhill := Vector3(-sin(tz), 0.0, sin(tx))
+	if downhill.length_squared() < 0.0001:
+		return 1.0
+	var uphill_dot := -dir.normalized().dot(downhill.normalized())
+	if uphill_dot <= 0.0:
+		return 1.0
+	return maxf(1.0 - uphill_dot * downhill.length() * UPHILL_PENALTY, 0.1)
 
 
 func _apply_cam_rotation() -> void:

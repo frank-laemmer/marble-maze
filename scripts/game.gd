@@ -45,6 +45,8 @@ func _ready() -> void:
 	if level:
 		add_child(level)
 		move_child(level, 0)   # Level before Marble so groups are found first
+		level.rotation_degrees.x = LevelLoader.level_tilt_x
+		level.rotation_degrees.z = LevelLoader.level_tilt_z
 
 	# Place marble at the start marker (groups populated during add_child above)
 	var sm := get_tree().get_first_node_in_group("start_marker")

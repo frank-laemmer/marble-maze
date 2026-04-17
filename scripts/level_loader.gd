@@ -39,6 +39,9 @@ var goal_cell:  Vector2i = Vector2i.ZERO
 var level_time: int = 180
 ## Display name; defaults to empty string if not set.
 var level_name: String = ""
+## Tilt in degrees around the X axis (slopes toward higher row indices) and Z axis (slopes toward higher col indices).
+var level_tilt_x: int = 0
+var level_tilt_z: int = 0
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
@@ -70,6 +73,8 @@ func _parse(content: String) -> Array:
 	# Reset metadata to defaults before each parse.
 	level_time = 180
 	level_name = ""
+	level_tilt_x = 0
+	level_tilt_z = 0
 
 	var rows: Array = []
 	for line in content.split("\n"):
@@ -81,6 +86,10 @@ func _parse(content: String) -> Array:
 				match kv[0]:
 					"timer": level_time = kv[1].to_int()
 					"name":  level_name = kv[1]
+					"tilt":
+						var parts := kv[1].split(",")
+						level_tilt_x = parts[0].to_int()
+						level_tilt_z = parts[1].to_int() if parts.size() > 1 else 0
 		else:
 			# Grid row — strip spaces/tabs so the old "S # . #" format still works.
 			var stripped := ""
