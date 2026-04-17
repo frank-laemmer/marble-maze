@@ -5,7 +5,7 @@ A 3D marble maze game inspired by the 'Marble It Up!' series. Guide your marble 
 ## Play it in your browser
 
 - [GitHub Pages](https://frank-laemmer.github.io/marble-maze/)
-- [itch.io](https://franktheprank.itch.io/marble-maze) [not released yet]
+- [itch.io](https://franktheprank.itch.io/marble-maze)
 
 ## Download
 
