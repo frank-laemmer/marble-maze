@@ -2,7 +2,10 @@
 
 A 3D marble maze game inspired by the 'Marble It Up!' series. Guide your marble from the Start tile to the Goal tile before the timer runs out. Unlock all built-in levels. Create your own levels with the level editor. Find short cuts and cheat modes for speed runs.
 
-Play it in your browser on [GitHub Pages](https://frank-laemmer.github.io/marble-maze/) or [itch.io](https://franktheprank.itch.io/marble-maze).
+## Play it in your browser
+
+- [GitHub Pages](https://frank-laemmer.github.io/marble-maze/)
+- [itch.io](https://franktheprank.itch.io/marble-maze) [not released yet]
 
 ## Download
 
@@ -61,7 +64,6 @@ It's best played with a game controller. One stick to control the marble, anothe
 - Built with Godot 4.6
 - Coded by Claude Code
 
-
 ## Dev notes
 
 I built this to get some experience with agentic coding and game design.
@@ -82,7 +84,6 @@ GitHub Actions will build and publish all platforms (Web, Windows, Linux, macOS)
 ### ASCII Level editing
 
 Levels are exported as ASCII files as well.
-
 
 ## License
 
