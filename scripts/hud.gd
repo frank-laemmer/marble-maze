@@ -17,7 +17,7 @@ func _ready() -> void:
 	if lm:
 		lm.time_changed.connect(_on_time_changed)
 		lm.state_changed.connect(_on_state_changed)
-		lm.entry_countdown_changed.connect(_on_countdown_changed)
+
 		if GameState.FEATURE_KEYS_DOORS:
 			lm.keys_changed.connect(_on_keys_changed)
 
@@ -157,6 +157,3 @@ func _on_state_changed(s: int) -> void:
 				overlay.show()
 			# If there is no title, show nothing at all during the flyover.
 
-
-func _on_countdown_changed(_t: float) -> void:
-	pass  # countdown number no longer shown

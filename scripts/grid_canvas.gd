@@ -38,8 +38,6 @@ const TILE_COLORS: Array = [
 	Color(0.36, 0.14, 0.14),   # DOOR_R  — dark red
 ]
 
-# Tile types treated as solid walls when auto-detecting door direction
-const _SOLID_TILES := [2, 6, 7, 9, 12, 14]  # WALL, INVIS_WALL, FAKE_WALL, DOOR_Y/G/R
 const GRID_LINE := Color(0.30, 0.30, 0.36, 0.55)
 const HOVER_BORDER := Color(1.0, 1.0, 1.0, 0.55)
 

@@ -111,8 +111,7 @@ func _build_ui() -> void:
 
 	_play_btn.grab_focus()
 
-## color parameter kept for compatibility with confirm-dialog call sites; ignored in styling.
-func _big_btn(label: String, color: Color = Color.TRANSPARENT) -> Button:
+func _big_btn(label: String) -> Button:
 	var b := Button.new()
 	b.text = label
 	b.custom_minimum_size = Vector2(0, 52)
@@ -309,7 +308,7 @@ func _confirm_delete(path: String, display: String, parent: Control) -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	center.add_child(row)
 
-	var del_btn := _big_btn("Delete", Color(0.50, 0.12, 0.12))
+	var del_btn := _big_btn("Delete")
 	del_btn.pressed.connect(func():
 		DirAccess.remove_absolute(path)
 		_show_level_panel()   # rebuilds the list; also frees the old panel + this overlay
@@ -319,7 +318,7 @@ func _confirm_delete(path: String, display: String, parent: Control) -> void:
 	var gap := Control.new(); gap.custom_minimum_size = Vector2(16, 0)
 	row.add_child(gap)
 
-	var cancel_btn := _big_btn("Cancel", Color(0.22, 0.22, 0.34))
+	var cancel_btn := _big_btn("Cancel")
 	cancel_btn.pressed.connect(func(): overlay.queue_free())
 	row.add_child(cancel_btn)
 
@@ -458,12 +457,12 @@ func _build_options_panel() -> PanelContainer:
 	vbox.add_child(section)
 	_vgap(vbox, 12)
 
-	var reset_btn := _big_btn("Reset Level Progress", Color(0.42, 0.18, 0.10))
+	var reset_btn := _big_btn("Reset Level Progress")
 	reset_btn.pressed.connect(func(): _confirm_reset_progress(panel))
 	vbox.add_child(reset_btn)
 	_vgap(vbox, 32)
 
-	var back := _big_btn("← BACK", Color(0.22, 0.22, 0.34))
+	var back := _big_btn("← BACK")
 	back.pressed.connect(func():
 		panel.queue_free()
 		_options_panel = null
@@ -501,7 +500,7 @@ func _confirm_reset_progress(parent: Control) -> void:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	center.add_child(row)
 
-	var confirm_btn := _big_btn("Reset", Color(0.50, 0.12, 0.12))
+	var confirm_btn := _big_btn("Reset")
 	confirm_btn.pressed.connect(func():
 		GameState.reset_progress()
 		overlay.queue_free())
@@ -510,7 +509,7 @@ func _confirm_reset_progress(parent: Control) -> void:
 	var gap := Control.new(); gap.custom_minimum_size = Vector2(16, 0)
 	row.add_child(gap)
 
-	var cancel_btn := _big_btn("Cancel", Color(0.22, 0.22, 0.34))
+	var cancel_btn := _big_btn("Cancel")
 	cancel_btn.pressed.connect(func(): overlay.queue_free())
 	row.add_child(cancel_btn)
 
@@ -566,7 +565,7 @@ func _build_doc_panel(file_path: String, close_callback: Callable) -> PanelConta
 		content.add_child(err)
 
 	_vgap(outer, 16)
-	var back := _big_btn("← BACK", Color(0.22, 0.22, 0.34))
+	var back := _big_btn("← BACK")
 	back.pressed.connect(close_callback)
 	outer.add_child(back)
 
