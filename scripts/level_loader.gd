@@ -334,6 +334,7 @@ func _build(rows: Array) -> Node3D:
 	dz.add_child(dz_col)
 	root.add_child(dz)
 
+	_add_grid_lines(root, grid, R, C)
 	return root
 
 ## Returns "ns", "ew", or "" (fall back to wall) based on which pair of
@@ -349,6 +350,135 @@ func _detect_door_variant(grid: Array, ri: int, ci: int, R: int, C: int) -> Stri
 	elif above_solid and below_solid:
 		return "ew"
 	return ""
+
+# Edge outlines on every visible tile. CULL_DISABLED so every quad is visible
+# from both sides regardless of camera angle. Wall tiles also get solid corner
+# posts at each vertical edge so adjacent face stripes meet without a gap.
+func _add_grid_lines(root: Node3D, g: Array[String], R: int, C: int) -> void:
+	var lw := 0.05  # stripe width — barely-there
+
+	# ~96 % of each surface's base colour
+	var floor_line_mat := StandardMaterial3D.new()
+	floor_line_mat.albedo_color = Color(0.588, 0.622, 0.7, 1.0)   # floor base: 0.55 0.58 0.65
+	floor_line_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	floor_line_mat.cull_mode    = BaseMaterial3D.CULL_DISABLED
+
+	var wall_line_mat := StandardMaterial3D.new()
+	wall_line_mat.albedo_color = Color(0.239, 0.344, 0.57, 1.0)    # wall base: 0.22 0.32 0.52
+	wall_line_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	wall_line_mat.cull_mode    = BaseMaterial3D.CULL_DISABLED
+
+	var wall_tiles := ["#", "F", "D", "E", "R", "H"]
+
+	var st_f := SurfaceTool.new(); st_f.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var st_w := SurfaceTool.new(); st_w.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	for ri in R:
+		for ci in g[ri].length():
+			var ch := g[ri][ci]
+			if ch == "_" or ch == "V" or ch == "I":
+				continue
+			var x := ci * CELL
+			var z := ri * CELL
+
+			if wall_tiles.has(ch):
+				var yt := WALL_H + 0.01   # just above wall-top surface
+				var wh := WALL_H + 0.01   # vertical faces extend to match yt → no top gap
+				# Top face border
+				_hquad(st_w, x,             x + CELL,     z,             z + lw,    yt)
+				_hquad(st_w, x,             x + CELL,     z + CELL - lw, z + CELL,  yt)
+				_hquad(st_w, x,             x + lw,       z,             z + CELL,  yt)
+				_hquad(st_w, x + CELL - lw, x + CELL,     z,             z + CELL,  yt)
+				# Vertical face borders — 0.01 outward offset, height = wh so top meets yt
+				_vface_z(st_w, x, x + CELL, wh, z - 0.01,        lw)  # north
+				_vface_z(st_w, x, x + CELL, wh, z + CELL + 0.01, lw)  # south
+				_vface_x(st_w, z, z + CELL, wh, x - 0.01,        lw)  # west
+				_vface_x(st_w, z, z + CELL, wh, x + CELL + 0.01, lw)  # east
+				# Corner posts — fill the gap between adjacent vertical face stripes
+				_box_st(st_w, x,        wh * 0.5, z,        lw, wh, lw)
+				_box_st(st_w, x + CELL, wh * 0.5, z,        lw, wh, lw)
+				_box_st(st_w, x,        wh * 0.5, z + CELL, lw, wh, lw)
+				_box_st(st_w, x + CELL, wh * 0.5, z + CELL, lw, wh, lw)
+			else:
+				var yf := 0.01
+				_hquad(st_f, x,             x + CELL,     z,             z + lw,    yf)
+				_hquad(st_f, x,             x + CELL,     z + CELL - lw, z + CELL,  yf)
+				_hquad(st_f, x,             x + lw,       z,             z + CELL,  yf)
+				_hquad(st_f, x + CELL - lw, x + CELL,     z,             z + CELL,  yf)
+
+	_commit_lines(root, st_f, floor_line_mat)
+	_commit_lines(root, st_w, wall_line_mat)
+
+
+func _commit_lines(root: Node3D, st: SurfaceTool, mat: StandardMaterial3D) -> void:
+	var mesh := st.commit()
+	if mesh.get_surface_count() == 0:
+		return
+	var vis := MeshInstance3D.new()
+	vis.mesh = mesh
+	vis.material_override = mat
+	root.add_child(vis)
+
+
+# Four border stripes on a vertical face at constant z (north/south wall face)
+func _vface_z(st: SurfaceTool, x0: float, x1: float, wh: float, zf: float, lw: float) -> void:
+	_vquad_z(st, x0,        x1,        0.0,     lw,  zf)
+	_vquad_z(st, x0,        x1,        wh - lw, wh,  zf)
+	_vquad_z(st, x0,        x0 + lw,   0.0,     wh,  zf)
+	_vquad_z(st, x1 - lw,   x1,        0.0,     wh,  zf)
+
+
+# Four border stripes on a vertical face at constant x (west/east wall face)
+func _vface_x(st: SurfaceTool, z0: float, z1: float, wh: float, xf: float, lw: float) -> void:
+	_vquad_x(st, z0,        z1,        0.0,     lw,  xf)
+	_vquad_x(st, z0,        z1,        wh - lw, wh,  xf)
+	_vquad_x(st, z0,        z0 + lw,   0.0,     wh,  xf)
+	_vquad_x(st, z1 - lw,   z1,        0.0,     wh,  xf)
+
+
+# Solid box added to a SurfaceTool (CULL_DISABLED so winding doesn't matter)
+func _box_st(st: SurfaceTool, cx: float, cy: float, cz: float,
+			 sx: float, sy: float, sz: float) -> void:
+	var x0 := cx - sx * 0.5; var x1 := cx + sx * 0.5
+	var y0 := cy - sy * 0.5; var y1 := cy + sy * 0.5
+	var z0 := cz - sz * 0.5; var z1 := cz + sz * 0.5
+	_hquad(st, x0, x1, z0, z1, y1)   # top
+	_hquad(st, x0, x1, z0, z1, y0)   # bottom
+	_vquad_z(st, x0, x1, y0, y1, z0) # north
+	_vquad_z(st, x0, x1, y0, y1, z1) # south
+	_vquad_x(st, z0, z1, y0, y1, x0) # west
+	_vquad_x(st, z0, z1, y0, y1, x1) # east
+
+
+# Horizontal quad at constant y
+func _hquad(st: SurfaceTool, x0: float, x1: float, z0: float, z1: float, y: float) -> void:
+	st.add_vertex(Vector3(x0, y, z0))
+	st.add_vertex(Vector3(x1, y, z0))
+	st.add_vertex(Vector3(x1, y, z1))
+	st.add_vertex(Vector3(x0, y, z0))
+	st.add_vertex(Vector3(x1, y, z1))
+	st.add_vertex(Vector3(x0, y, z1))
+
+
+# Vertical quad at constant z (XY plane — north/south faces)
+func _vquad_z(st: SurfaceTool, x0: float, x1: float, y0: float, y1: float, z: float) -> void:
+	st.add_vertex(Vector3(x0, y0, z))
+	st.add_vertex(Vector3(x1, y0, z))
+	st.add_vertex(Vector3(x1, y1, z))
+	st.add_vertex(Vector3(x0, y0, z))
+	st.add_vertex(Vector3(x1, y1, z))
+	st.add_vertex(Vector3(x0, y1, z))
+
+
+# Vertical quad at constant x (ZY plane — west/east faces)
+func _vquad_x(st: SurfaceTool, z0: float, z1: float, y0: float, y1: float, x: float) -> void:
+	st.add_vertex(Vector3(x, y0, z0))
+	st.add_vertex(Vector3(x, y0, z1))
+	st.add_vertex(Vector3(x, y1, z1))
+	st.add_vertex(Vector3(x, y0, z0))
+	st.add_vertex(Vector3(x, y1, z1))
+	st.add_vertex(Vector3(x, y1, z0))
+
 
 func _add_box(root: Node3D, body: StaticBody3D,
 			  mesh: BoxMesh, mat: StandardMaterial3D,

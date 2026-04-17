@@ -1,41 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <!-- Diagonal red/green stripes matching the marble shader -->
-    <pattern id="stripes" width="256" height="256" patternUnits="userSpaceOnUse">
-      <rect width="256" height="256" fill="#D90F0F"/>
-      <polygon points="0,0 128,0 0,128"       fill="#14B81F"/>
-      <polygon points="128,256 256,256 256,128" fill="#14B81F"/>
-    </pattern>
-
-    <!-- Key light: bright specular highlight, upper-right -->
-    <radialGradient id="highlight" cx="72%" cy="20%" r="52%">
-      <stop offset="0%"   stop-color="white" stop-opacity="0.80"/>
-      <stop offset="30%"  stop-color="white" stop-opacity="0.30"/>
+    <clipPath id="sphere-clip">
+      <circle cx="512" cy="512" r="500"/>
+    </clipPath>
+    <radialGradient id="highlight" cx="68%" cy="22%" r="48%">
+      <stop offset="0%"   stop-color="white" stop-opacity="0.85"/>
+      <stop offset="40%"  stop-color="white" stop-opacity="0.25"/>
       <stop offset="100%" stop-color="white" stop-opacity="0"/>
     </radialGradient>
-
-    <!-- Shadow: darkens lower-left -->
-    <radialGradient id="shadow" cx="28%" cy="80%" r="70%">
-      <stop offset="20%"  stop-color="black" stop-opacity="0"/>
-      <stop offset="100%" stop-color="black" stop-opacity="0.60"/>
-    </radialGradient>
-
-    <!-- Rim light: cool blue from lower-left, matching the 3D scene -->
-    <radialGradient id="rim" cx="8%" cy="88%" r="50%">
-      <stop offset="0%"   stop-color="#6688FF" stop-opacity="0.40"/>
-      <stop offset="100%" stop-color="#6688FF" stop-opacity="0"/>
-    </radialGradient>
-
-    <!-- Vignette: subtle corner darkening to suggest sphere curvature -->
-    <radialGradient id="vignette" cx="50%" cy="50%" r="72%">
-      <stop offset="55%"  stop-color="black" stop-opacity="0"/>
-      <stop offset="100%" stop-color="black" stop-opacity="0.45"/>
+    <radialGradient id="shadow" cx="30%" cy="78%" r="65%">
+      <stop offset="30%"  stop-color="black" stop-opacity="0"/>
+      <stop offset="100%" stop-color="black" stop-opacity="0.55"/>
     </radialGradient>
   </defs>
 
-  <rect width="1024" height="1024" fill="url(#stripes)"/>
-  <rect width="1024" height="1024" fill="url(#shadow)"/>
-  <rect width="1024" height="1024" fill="url(#rim)"/>
-  <rect width="1024" height="1024" fill="url(#highlight)"/>
-  <rect width="1024" height="1024" fill="url(#vignette)"/>
+  <g clip-path="url(#sphere-clip)">
+    <!-- Green base -->
+    <rect width="1024" height="1024" fill="#14B81F"/>
+    <!-- Two red bands, ~10° tilt from horizontal (lower-left to upper-right) -->
+    <polygon points="0,310 1024,130 1024,380 0,560" fill="#D90F0F"/>
+    <polygon points="0,750 1024,570 1024,1024 0,1024" fill="#D90F0F"/>
+    <!-- Lighting -->
+    <rect width="1024" height="1024" fill="url(#shadow)"/>
+    <rect width="1024" height="1024" fill="url(#highlight)"/>
+  </g>
 </svg>
