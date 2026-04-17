@@ -11,6 +11,9 @@ A 3D marble maze game inspired by the 'Marble It Up!' series. Guide your marble 
 Developer website  
 [franklaemmer.de](https://www.franklaemmer.de)
 
+Source code  
+[github.com/frank-laemmer/marble-maze](https://github.com/frank-laemmer/marble-maze)
+
 ## Testers
 
 - Janosch
