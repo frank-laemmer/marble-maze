@@ -18,7 +18,7 @@ A 3D marble maze game inspired by the 'Marble It Up!' series. Guide your marble 
 
 ### macOS setup
 
-On first launch, macOS will prevent the app from running. Go to **System Settings** > **Privacy & Security** and allow the app to run.
+On first launch, macOS will prevent the app from running. Go to **System Settings** > **Privacy & Security** and allow the app to run (Open anyway).
 
 ## Features
 
