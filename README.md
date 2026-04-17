@@ -6,12 +6,16 @@ Play it in your browser on [GitHub Pages](https://frank-laemmer.github.io/marble
 
 ## Download
 
-| Platform | Link |
-| :------- | :--- |
-| Windows  | [marble-maze-windows.zip](https://github.com/frank-laemmer/marble-maze/releases/latest/download/marble-maze-windows.zip) |
-| Linux    | [marble-maze-linux.zip](https://github.com/frank-laemmer/marble-maze/releases/latest/download/marble-maze-linux.zip) |
-| macOS    | [marble-maze-macos.zip](https://github.com/frank-laemmer/marble-maze/releases/latest/download/marble-maze-macos.zip) |
-| Web      | [marble-maze-web.zip](https://github.com/frank-laemmer/marble-maze/releases/latest/download/marble-maze-web.zip) |
+| Platform | Link                                                                                                                                            |
+| :------- | :---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Windows  | [marble-maze-windows.zip](https://github.com/frank-laemmer/marble-maze/releases/latest/download/marble-maze-windows.zip)                     |
+| Linux    | [marble-maze-linux.zip](https://github.com/frank-laemmer/marble-maze/releases/latest/download/marble-maze-linux.zip)                         |
+| macOS    | [marble-maze-macos.zip](https://github.com/frank-laemmer/marble-maze/releases/latest/download/marble-maze-macos.zip)                         |
+| Web      | [marble-maze-web.zip](https://github.com/frank-laemmer/marble-maze/releases/latest/download/marble-maze-web.zip)                             |
+
+### macOS setup
+
+On first launch, macOS will prevent the app from running. Go to **System Settings** > **Privacy & Security** and allow the app to run.
 
 ## Features
 
@@ -60,6 +64,8 @@ It's best played with a game controller. One stick to control the marble, anothe
 
 ## Dev notes
 
+I built this to get some experience with agentic coding and game design.
+
 ### Building
 
 Open `project.godot` in Godot 4.6 and press Play.
@@ -72,6 +78,11 @@ git push origin v1.0.0
 ```
 
 GitHub Actions will build and publish all platforms (Web, Windows, Linux, macOS) automatically.
+
+### ASCII Level editing
+
+Levels are exported as ASCII files as well.
+
 
 ## License
 
