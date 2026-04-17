@@ -711,8 +711,8 @@ func _build_bg_viewport() -> SubViewportContainer:
 	_bg_cam.fov = 52.0
 	_bg_cam.h_offset = -1.1  # shift frustum left so marble appears in the right portion
 	_bg_cam.position = Vector3(0, 1.1, 3.2)
-	_bg_cam.look_at(Vector3(0, 0.1, 0), Vector3.UP)
 	root.add_child(_bg_cam)
+	_bg_cam.look_at(Vector3(0, 0.1, 0), Vector3.UP)
 
 	return svc
 

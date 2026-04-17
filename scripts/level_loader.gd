@@ -42,6 +42,8 @@ var level_name: String = ""
 ## Tilt in degrees around the X axis (slopes toward higher row indices) and Z axis (slopes toward higher col indices).
 var level_tilt_x: int = 0
 var level_tilt_z: int = 0
+## Marble shape override: "sphere" (default), "dice", "pyramid".
+var level_marble_type: String = "sphere"
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
@@ -75,6 +77,7 @@ func _parse(content: String) -> Array:
 	level_name = ""
 	level_tilt_x = 0
 	level_tilt_z = 0
+	level_marble_type = "sphere"
 
 	var rows: Array = []
 	for line in content.split("\n"):
@@ -90,6 +93,7 @@ func _parse(content: String) -> Array:
 						var parts := kv[1].split(",")
 						level_tilt_x = parts[0].to_int()
 						level_tilt_z = parts[1].to_int() if parts.size() > 1 else 0
+					"marble": level_marble_type = kv[1]
 		else:
 			# Grid row — strip spaces/tabs so the old "S # . #" format still works.
 			var stripped := ""

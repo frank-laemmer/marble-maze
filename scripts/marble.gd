@@ -19,10 +19,11 @@ const FLYOVER_SPRING_START: float = 72.0   ## pull-out distance at the start
 const FLYOVER_PITCH_START:  float = -1.4   ## fully overhead at start
 const FLYOVER_YAW_OFFSET:   float = 1.2    ## radians swept during flyover
 
-@onready var cam_pivot:  Node3D       = $CamPivot
-@onready var spring_arm: SpringArm3D  = $CamPivot/SpringArm3D
-@onready var _camera:    Camera3D     = $CamPivot/SpringArm3D/Camera3D
-@onready var _mesh:      MeshInstance3D = $MeshInstance3D
+@onready var cam_pivot:  Node3D           = $CamPivot
+@onready var spring_arm: SpringArm3D      = $CamPivot/SpringArm3D
+@onready var _camera:    Camera3D         = $CamPivot/SpringArm3D/Camera3D
+@onready var _mesh:      MeshInstance3D   = $MeshInstance3D
+@onready var _col:       CollisionShape3D = $CollisionShape3D
 
 var _cam_yaw: float = 0.0
 var _cam_pitch: float = -1.0
@@ -32,6 +33,7 @@ var _jump_buffer_frames: int = 0
 var _coyote_frames: int = 0
 var _was_grounded: bool = false
 var _air_flat_vel: Vector3 = Vector3.ZERO  # horizontal velocity while airborne
+var _is_dice: bool = false
 
 ## Set by level_manager during level-entry (preview) mode.
 ## Camera rotation still works; movement and jumping are suppressed.
@@ -61,10 +63,6 @@ func _ready() -> void:
 	mat.friction = 0.8
 	physics_material_override = mat
 
-	var marble_mat := ShaderMaterial.new()
-	marble_mat.shader = preload("res://shaders/marble.gdshader")
-	_mesh.material_override = marble_mat
-
 	_ground_ray = RayCast3D.new()
 	_ground_ray.target_position = Vector3(0.0, -1.3, 0.0)
 	add_child(_ground_ray)
@@ -74,7 +72,88 @@ func _ready() -> void:
 	_camera.h_offset = 4.0
 	_camera.v_offset = 1.5
 
+	match LevelLoader.level_marble_type:
+		"dice":    _setup_dice()
+		"pyramid": _setup_pyramid()
+		_:         _setup_sphere()
+
 	_apply_cam_rotation()
+
+
+func _setup_sphere() -> void:
+	var marble_mat := ShaderMaterial.new()
+	marble_mat.shader = preload("res://shaders/marble.gdshader")
+	_mesh.material_override = marble_mat
+
+
+func _setup_dice() -> void:
+	_is_dice = true
+
+	var box_shp := BoxShape3D.new()
+	box_shp.size = Vector3(1.0, 1.0, 1.0)
+	_col.shape = box_shp
+
+	var box_mesh := BoxMesh.new()
+	box_mesh.size = Vector3(1.0, 1.0, 1.0)
+	_mesh.mesh = box_mesh
+
+	# Heavy damping so the dice settles face-down instead of spinning freely.
+	linear_damp  = 3.0
+	angular_damp = 4.0
+	# Max friction + rough combine so the dice grips the floor rather than sliding.
+	var dice_phys := PhysicsMaterial.new()
+	dice_phys.friction = 1.0
+	dice_phys.rough    = true   # MAX combine: uses the higher of the two surfaces
+	dice_phys.bounce   = 0.05
+	physics_material_override = dice_phys
+
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.95, 0.92, 0.85)
+	_mesh.material_override = mat
+
+
+func _setup_pyramid() -> void:
+	# Square pyramid: base at y=-0.35, apex at y=0.65 (height=1.0, base halfwidth=0.5)
+	var apex := Vector3( 0.0,  0.65,  0.0)
+	var bl   := Vector3(-0.5, -0.35, -0.5)
+	var br   := Vector3( 0.5, -0.35, -0.5)
+	var fr   := Vector3( 0.5, -0.35,  0.5)
+	var fl   := Vector3(-0.5, -0.35,  0.5)
+
+	var poly := ConvexPolygonShape3D.new()
+	poly.points = PackedVector3Array([apex, bl, br, fr, fl])
+	_col.shape = poly
+
+	var faces: Array = [
+		[fl, fr, apex],  # front (+Z)
+		[fr, br, apex],  # right (+X)
+		[br, bl, apex],  # back  (-Z)
+		[bl, fl, apex],  # left  (-X)
+		[bl, br, fr],    # base tri 1
+		[bl, fr, fl],    # base tri 2
+	]
+
+	var verts   := PackedVector3Array()
+	var normals := PackedVector3Array()
+	for face in faces:
+		var v0: Vector3 = face[0]
+		var v1: Vector3 = face[1]
+		var v2: Vector3 = face[2]
+		var n := (v1 - v0).cross(v2 - v0).normalized()
+		verts.append(v0); verts.append(v1); verts.append(v2)
+		normals.append(n); normals.append(n); normals.append(n)
+
+	var arrays := []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	var arr_mesh := ArrayMesh.new()
+	arr_mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	_mesh.mesh = arr_mesh
+
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = Color(0.85, 0.35, 0.25)
+	_mesh.material_override = mat
 
 
 ## Called by game.gd after the touch joystick node has been added to the tree.
@@ -209,19 +288,32 @@ func _physics_process(delta: float) -> void:
 		var dir := forward * fwd_in
 		var tilt_mult := _uphill_force_mult(dir)
 		var mult := tilt_mult if tilt_mult < 1.0 else (COUNTER_STEER_MULT if flat.dot(dir) < 0.0 else 1.0)
-		apply_central_force(dir * FORCE * mult)
+		_apply_movement_force(dir * FORCE * mult)
 
 	if abs(str_in) > 0.01:
 		var dir := right * str_in
 		var tilt_mult := _uphill_force_mult(dir)
 		var mult := tilt_mult if tilt_mult < 1.0 else (COUNTER_STEER_MULT if flat.dot(dir) < 0.0 else 1.0)
-		apply_central_force(dir * FORCE * mult)
+		_apply_movement_force(dir * FORCE * mult)
 
 	# ── Speed cap ──────────────────────────────────────────────────────────────
 	flat = Vector3(linear_velocity.x, 0.0, linear_velocity.z)
 	if flat.length() > MAX_SPEED:
 		var clamped := flat.normalized() * MAX_SPEED
 		linear_velocity = Vector3(clamped.x, linear_velocity.y, clamped.z)
+
+
+## For the dice, force is applied 0.5 m above centre in WORLD space (not body-local space).
+## This gives a consistent tipping torque (F × 0.5 lever = 19 N⋅m) that exceeds the
+## gravity-restoring torque (12.25 N⋅m) in every direction, regardless of how the dice
+## is currently oriented. Using basis * (0,0.5,0) would rotate the lever arm with the
+## dice and produce the wrong torque direction after the first roll.
+## For all other shapes, force goes through the centre of mass as before.
+func _apply_movement_force(force: Vector3) -> void:
+	if _is_dice:
+		apply_force(force, Vector3(0, 0.5, 0))
+	else:
+		apply_central_force(force)
 
 
 ## Returns a force multiplier < 1.0 when `dir` has an uphill component on a tilted level,
