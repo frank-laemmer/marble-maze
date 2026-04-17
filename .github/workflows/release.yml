@@ -82,21 +82,41 @@ jobs:
           name: builds
           path: builds/
 
-      - name: Install Butler
-        run: |
-          curl -L -o butler.zip https://broth.itch.ovh/butler/linux-amd64/LATEST/archive/default
-          unzip butler.zip
-          chmod +x butler
-          sudo mv butler /usr/local/bin/
-
-      - name: Push to itch.io
+      - name: Push web to itch.io
+        uses: josephbmanley/butler-publish-itchio-action@master
         env:
-          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
-        run: |
-          butler push builds/web          ${ITCH_USER}/${ITCH_GAME}:web
-          butler push builds/windows      ${ITCH_USER}/${ITCH_GAME}:windows
-          butler push builds/linux        ${ITCH_USER}/${ITCH_GAME}:linux
-          butler push builds/macos/MarbleMaze.zip ${ITCH_USER}/${ITCH_GAME}:macos
+          BUTLER_CREDENTIALS: ${{ secrets.BUTLER_API_KEY }}
+          CHANNEL: web
+          ITCH_GAME: ${{ env.ITCH_GAME }}
+          ITCH_USER: ${{ env.ITCH_USER }}
+          PACKAGE: builds/web
+
+      - name: Push Windows to itch.io
+        uses: josephbmanley/butler-publish-itchio-action@master
+        env:
+          BUTLER_CREDENTIALS: ${{ secrets.BUTLER_API_KEY }}
+          CHANNEL: windows
+          ITCH_GAME: ${{ env.ITCH_GAME }}
+          ITCH_USER: ${{ env.ITCH_USER }}
+          PACKAGE: builds/windows
+
+      - name: Push Linux to itch.io
+        uses: josephbmanley/butler-publish-itchio-action@master
+        env:
+          BUTLER_CREDENTIALS: ${{ secrets.BUTLER_API_KEY }}
+          CHANNEL: linux
+          ITCH_GAME: ${{ env.ITCH_GAME }}
+          ITCH_USER: ${{ env.ITCH_USER }}
+          PACKAGE: builds/linux
+
+      - name: Push macOS to itch.io
+        uses: josephbmanley/butler-publish-itchio-action@master
+        env:
+          BUTLER_CREDENTIALS: ${{ secrets.BUTLER_API_KEY }}
+          CHANNEL: macos
+          ITCH_GAME: ${{ env.ITCH_GAME }}
+          ITCH_USER: ${{ env.ITCH_USER }}
+          PACKAGE: builds/macos/MarbleMaze.zip
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
