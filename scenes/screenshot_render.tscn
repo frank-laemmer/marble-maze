@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://screenshot_render01"]
+
+[ext_resource type="Script" path="res://scripts/screenshot_render.gd" id="1"]
+
+[node name="ScreenshotRender" type="Node"]
+script = ExtResource("1")

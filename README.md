@@ -2,6 +2,22 @@
 
 A 3D marble maze game inspired by the 'Marble It Up!' series. Guide your marble from the Start tile to the Goal tile before the timer runs out. Unlock all built-in levels. Create your own levels with the level editor. Find short cuts and cheat modes for speed runs.
 
+## Screenshots
+
+<table>
+  <tr>
+    <td><img src="assets/screenshot_01_marthas_maze.png" alt="Martha's Maze"/></td>
+    <td><img src="assets/screenshot_02_grey_skull.png" alt="Grey Skull"/></td>
+  </tr>
+  <tr>
+    <td><img src="assets/screenshot_03_now_you_see_me.png" alt="Now You See Me"/></td>
+    <td><img src="assets/screenshot_04_look_and_see.png" alt="Look and See"/></td>
+  </tr>
+  <tr>
+    <td colspan="2"><img src="assets/screenshot_05_level_editor.png" alt="Level Editor"/></td>
+  </tr>
+</table>
+
 ## Play it in your browser
 
 - [GitHub Pages](https://frank-laemmer.github.io/marble-maze/)

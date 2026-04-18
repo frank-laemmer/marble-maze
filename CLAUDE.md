@@ -12,7 +12,14 @@ Marble Maze is a 3D marble maze game built with **Godot 4.6** (Forward Plus rend
 
 **Test in-editor:** Use the "Test" button inside the level editor scene.
 
-**Generate the app icon PNG:** Open and run `scenes/icon_render.tscn` in Godot (F6). It exports to `res://icon.png` and quits automatically.
+**Generate rendered assets** (icon, itch.io header, screenshots) — each scene renders and quits automatically:
+```bash
+make icon         # res://icon.png
+make header       # res://header.png
+make screenshots  # res://screenshots/screenshot_0*.png
+make renders      # all three in sequence
+```
+Override the binary with `GODOT=/path/to/godot make renders` if needed.
 
 **Trigger a release:** Push a version tag — GitHub Actions handles all exports, publishing, and version patching automatically.
 ```bash

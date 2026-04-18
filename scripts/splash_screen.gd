@@ -215,7 +215,7 @@ func _build_level_panel() -> PanelContainer:
 		empty.add_theme_font_size_override("font_size", 18)
 		list.add_child(empty)
 
-	var back := _level_btn("← Back")
+	var back := _level_btn("Back")
 	back.pressed.connect(func():
 		panel.queue_free()
 		_level_panel = null
@@ -462,7 +462,7 @@ func _build_options_panel() -> PanelContainer:
 	vbox.add_child(reset_btn)
 	_vgap(vbox, 32)
 
-	var back := _big_btn("← BACK")
+	var back := _big_btn("BACK")
 	back.pressed.connect(func():
 		panel.queue_free()
 		_options_panel = null
@@ -565,7 +565,7 @@ func _build_doc_panel(file_path: String, close_callback: Callable) -> PanelConta
 		content.add_child(err)
 
 	_vgap(outer, 16)
-	var back := _big_btn("← BACK")
+	var back := _big_btn("BACK")
 	back.pressed.connect(close_callback)
 	outer.add_child(back)
 

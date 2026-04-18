@@ -15,8 +15,8 @@ enum TileType { EMPTY = 0, FLOOR = 1, WALL = 2, START = 3, END = 4, MAP = 5, INV
 const TILE_LABELS  : Array = ["Empty", "Floor", "Wall", "Start", "End", "Map Tile", "Invis Wall", "Fake Wall", "Key (Yellow)", "Door (Yellow)", "Invis Floor", "Key (Green)", "Door (Green)", "Key (Red)", "Door (Red)"]
 const TILE_COLORS  : Array = [
 	Color(0.10, 0.10, 0.13),
-	Color(0.52, 0.56, 0.63),
-	Color(0.20, 0.30, 0.50),
+	Color(0.65, 0.65, 0.65),
+	Color(0.38, 0.38, 0.38),
 	Color(0.15, 0.78, 0.22),
 	Color(0.88, 0.73, 0.08),
 	Color(0.15, 0.65, 0.72),  # MAP        — teal
@@ -49,6 +49,7 @@ var level_timer: int = 180             # time limit stored as !timer= metadata
 var level_tilt_x: int = 0  # degrees around X axis; stored as !tilt=x,z
 var level_tilt_z: int = 0  # degrees around Z axis
 var level_marble_type: String = "sphere"  # stored as !marble=; "sphere"|"dice"
+var level_marble_size: float = 1.0        # stored as !marble_size=; 0.1–5.0
 var has_start: bool = false
 var has_end:   bool = false
 
@@ -63,6 +64,7 @@ var _timer_spin: SpinBox
 var _tilt_x_spin: SpinBox
 var _tilt_z_spin: SpinBox
 var _marble_option: OptionButton
+var _marble_size_spin: SpinBox
 var _rows_spin: SpinBox
 var _cols_spin: SpinBox
 var _tile_buttons: Array = []
@@ -156,6 +158,8 @@ func _level_to_string() -> String:
 		lines.append("!tilt=" + str(level_tilt_x) + "," + str(level_tilt_z))
 	if level_marble_type != "sphere":
 		lines.append("!marble=" + level_marble_type)
+	if level_marble_size != 1.0:
+		lines.append("!marble_size=" + str(snappedf(level_marble_size, 0.01)))
 	# Write grid rows
 	for row in grid:
 		var line := ""
@@ -178,6 +182,7 @@ func _load_from_string(content: String) -> void:
 	level_tilt_x = 0
 	level_tilt_z = 0
 	level_marble_type = "sphere"
+	level_marble_size = 1.0
 
 	var rows: Array = []
 	for line in content.split("\n"):
@@ -193,7 +198,8 @@ func _load_from_string(content: String) -> void:
 						var tp := kv[1].split(",")
 						level_tilt_x = tp[0].to_int()
 						level_tilt_z = tp[1].to_int() if tp.size() > 1 else 0
-					"marble": level_marble_type = kv[1]
+					"marble":      level_marble_type = kv[1]
+					"marble_size": level_marble_size = kv[1].to_float()
 		else:
 			# Grid row — strip spaces/tabs for backward compat with "S # . #" format.
 			var stripped := ""
@@ -227,6 +233,7 @@ func _load_from_string(content: String) -> void:
 	if _tilt_z_spin: _tilt_z_spin.value = level_tilt_z
 	if _marble_option:
 		_marble_option.selected = ({"sphere": 0, "dice": 1} as Dictionary).get(level_marble_type, 0) as int
+	if _marble_size_spin: _marble_size_spin.value = level_marble_size
 	if _rows_spin:  _rows_spin.value  = grid_rows
 	if _cols_spin:  _cols_spin.value  = grid_cols
 	_sync_canvas()
@@ -283,17 +290,37 @@ func _build_toolbar() -> PanelContainer:
 	rows_vbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	panel.add_child(rows_vbox)
 
-	# ── Row 1: naming + size controls ─────────────────────────────────────────
+	# ── Row 1: actions + file naming + timer ──────────────────────────────────
 	var row1 := HBoxContainer.new()
 	row1.alignment = BoxContainer.ALIGNMENT_BEGIN
 	rows_vbox.add_child(row1)
 
 	_hspace(row1, 6)
+	for pair in [
+		["New",    Color(0.24, 0.34, 0.54), _on_new],
+		["Load",   Color(0.24, 0.34, 0.54), _on_load],
+		["Save",   Color(0.18, 0.52, 0.28), _on_save],
+		["Test",   Color(0.52, 0.34, 0.14), _on_play],
+		["Menu",   Color(0.32, 0.22, 0.40), _on_back],
+	]:
+		var b := _btn(pair[0], pair[1])
+		b.pressed.connect(pair[2])
+		row1.add_child(b)
+		_hspace(row1, 4)
+
+	if not OS.has_feature("web"):
+		_hspace(row1, 4)
+		var stock_btn := _btn("Stock", Color(0.42, 0.28, 0.58))
+		stock_btn.tooltip_text = "Save to res://levels/ (developer mode)"
+		stock_btn.pressed.connect(_on_save_stock)
+		row1.add_child(stock_btn)
+
+	_hspace(row1, 14)
 	_lbl(row1, "File:")
 	_hspace(row1, 4)
 	_name_edit = LineEdit.new()
 	_name_edit.text = level_name
-	_name_edit.custom_minimum_size = Vector2(110, 0)
+	_name_edit.custom_minimum_size = Vector2(100, 0)
 	_name_edit.placeholder_text = "filename"
 	_name_edit.text_changed.connect(func(t: String): level_name = t)
 	row1.add_child(_name_edit)
@@ -303,8 +330,8 @@ func _build_toolbar() -> PanelContainer:
 	_hspace(row1, 4)
 	_title_edit = LineEdit.new()
 	_title_edit.text = level_title
-	_title_edit.custom_minimum_size = Vector2(180, 0)
-	_title_edit.placeholder_text = "display name shown in menu"
+	_title_edit.custom_minimum_size = Vector2(160, 0)
+	_title_edit.placeholder_text = "display name"
 	_title_edit.text_changed.connect(func(t: String): level_title = t)
 	row1.add_child(_title_edit)
 	_hspace(row1, 10)
@@ -317,94 +344,89 @@ func _build_toolbar() -> PanelContainer:
 	_timer_spin.step = 5
 	_timer_spin.value = level_timer
 	_timer_spin.suffix = "s"
-	_timer_spin.custom_minimum_size = Vector2(90, 0)
+	_timer_spin.custom_minimum_size = Vector2(86, 0)
 	_timer_spin.value_changed.connect(func(v: float): level_timer = int(v))
 	row1.add_child(_timer_spin)
-	_hspace(row1, 14)
 
-	_lbl(row1, "Tilt X:")
-	_hspace(row1, 4)
-	_tilt_x_spin = SpinBox.new()
-	_tilt_x_spin.min_value = -30
-	_tilt_x_spin.max_value = 30
-	_tilt_x_spin.step = 1
-	_tilt_x_spin.value = level_tilt_x
-	_tilt_x_spin.suffix = "°"
-	_tilt_x_spin.custom_minimum_size = Vector2(78, 0)
-	_tilt_x_spin.value_changed.connect(func(v: float): level_tilt_x = int(v))
-	row1.add_child(_tilt_x_spin)
-	_hspace(row1, 10)
-	_lbl(row1, "Tilt Z:")
-	_hspace(row1, 4)
-	_tilt_z_spin = SpinBox.new()
-	_tilt_z_spin.min_value = -30
-	_tilt_z_spin.max_value = 30
-	_tilt_z_spin.step = 1
-	_tilt_z_spin.value = level_tilt_z
-	_tilt_z_spin.suffix = "°"
-	_tilt_z_spin.custom_minimum_size = Vector2(78, 0)
-	_tilt_z_spin.value_changed.connect(func(v: float): level_tilt_z = int(v))
-	row1.add_child(_tilt_z_spin)
-	_hspace(row1, 14)
-
-	_lbl(row1, "Marble:")
-	_hspace(row1, 4)
-	_marble_option = OptionButton.new()
-	_marble_option.add_item("Sphere", 0)
-	_marble_option.add_item("Dice",   1)
-	_marble_option.selected = 0
-	_marble_option.custom_minimum_size = Vector2(90, 0)
-	_marble_option.item_selected.connect(func(idx: int):
-		level_marble_type = ["sphere", "dice"][idx]
-		_refresh_status())
-	row1.add_child(_marble_option)
-	_hspace(row1, 14)
-
-	_lbl(row1, "Size:")
-	_hspace(row1, 4)
-	_rows_spin = SpinBox.new()
-	_rows_spin.min_value = MIN_DIM; _rows_spin.max_value = MAX_ROWS
-	_rows_spin.value = grid_rows; _rows_spin.custom_minimum_size = Vector2(72, 0)
-	row1.add_child(_rows_spin)
-	_lbl(row1, "×")
-	_cols_spin = SpinBox.new()
-	_cols_spin.min_value = MIN_DIM; _cols_spin.max_value = MAX_COLS
-	_cols_spin.value = grid_cols; _cols_spin.custom_minimum_size = Vector2(72, 0)
-	row1.add_child(_cols_spin)
-	var apply := _btn("Apply", Color(0.28, 0.38, 0.58))
-	apply.pressed.connect(func(): _resize_grid(int(_rows_spin.value), int(_cols_spin.value)))
-	row1.add_child(apply)
-
-	# ── Row 2: actions + zoom ──────────────────────────────────────────────────
+	# ── Row 2: level parameters + grid size + zoom ────────────────────────────
 	var row2 := HBoxContainer.new()
 	row2.alignment = BoxContainer.ALIGNMENT_BEGIN
 	rows_vbox.add_child(row2)
 
 	_hspace(row2, 6)
+	_lbl(row2, "Tilt X:")
+	_hspace(row2, 4)
+	_tilt_x_spin = SpinBox.new()
+	_tilt_x_spin.min_value = -60
+	_tilt_x_spin.max_value = 60
+	_tilt_x_spin.step = 1
+	_tilt_x_spin.value = level_tilt_x
+	_tilt_x_spin.suffix = "°"
+	_tilt_x_spin.custom_minimum_size = Vector2(74, 0)
+	_tilt_x_spin.value_changed.connect(func(v: float): level_tilt_x = int(v))
+	row2.add_child(_tilt_x_spin)
+	_hspace(row2, 8)
 
-	for pair in [
-		["New",     Color(0.24, 0.34, 0.54), _on_new],
-		["Load",    Color(0.24, 0.34, 0.54), _on_load],
-		["Save",    Color(0.18, 0.52, 0.28), _on_save],
-		["▶ Test",  Color(0.52, 0.34, 0.14), _on_play],
-		["← Menu",  Color(0.32, 0.22, 0.40), _on_back],
-	]:
-		var b := _btn(pair[0], pair[1])
-		b.pressed.connect(pair[2])
-		row2.add_child(b)
-		_hspace(row2, 4)
-
-	if not OS.has_feature("web"):
-		_hspace(row2, 6)
-		var stock_btn := _btn("Save as Stock", Color(0.42, 0.28, 0.58))
-		stock_btn.tooltip_text = "Save to res://levels/ (developer mode)"
-		stock_btn.pressed.connect(_on_save_stock)
-		row2.add_child(stock_btn)
-		_hspace(row2, 4)
-
+	_lbl(row2, "Z:")
+	_hspace(row2, 4)
+	_tilt_z_spin = SpinBox.new()
+	_tilt_z_spin.min_value = -60
+	_tilt_z_spin.max_value = 60
+	_tilt_z_spin.step = 1
+	_tilt_z_spin.value = level_tilt_z
+	_tilt_z_spin.suffix = "°"
+	_tilt_z_spin.custom_minimum_size = Vector2(74, 0)
+	_tilt_z_spin.value_changed.connect(func(v: float): level_tilt_z = int(v))
+	row2.add_child(_tilt_z_spin)
 	_hspace(row2, 14)
+
+	_lbl(row2, "Marble:")
+	_hspace(row2, 4)
+	_marble_option = OptionButton.new()
+	_marble_option.add_item("Sphere", 0)
+	_marble_option.add_item("Dice",   1)
+	_marble_option.selected = 0
+	_marble_option.custom_minimum_size = Vector2(86, 0)
+	_marble_option.item_selected.connect(func(idx: int):
+		level_marble_type = ["sphere", "dice"][idx]
+		_refresh_status())
+	row2.add_child(_marble_option)
+	_hspace(row2, 8)
+
+	_lbl(row2, "Size:")
+	_hspace(row2, 4)
+	_marble_size_spin = SpinBox.new()
+	_marble_size_spin.min_value = 0.1
+	_marble_size_spin.max_value = 5.0
+	_marble_size_spin.step = 0.1
+	_marble_size_spin.value = 1.0
+	_marble_size_spin.custom_minimum_size = Vector2(74, 0)
+	_marble_size_spin.value_changed.connect(func(v: float):
+		level_marble_size = v
+		_refresh_status())
+	row2.add_child(_marble_size_spin)
+	_hspace(row2, 14)
+
+	_lbl(row2, "Grid:")
+	_hspace(row2, 4)
+	_rows_spin = SpinBox.new()
+	_rows_spin.min_value = MIN_DIM; _rows_spin.max_value = MAX_ROWS
+	_rows_spin.value = grid_rows; _rows_spin.custom_minimum_size = Vector2(66, 0)
+	row2.add_child(_rows_spin)
+	_lbl(row2, "x")
+	_cols_spin = SpinBox.new()
+	_cols_spin.min_value = MIN_DIM; _cols_spin.max_value = MAX_COLS
+	_cols_spin.value = grid_cols; _cols_spin.custom_minimum_size = Vector2(66, 0)
+	row2.add_child(_cols_spin)
+	_hspace(row2, 4)
+	var apply := _btn("Apply", Color(0.28, 0.38, 0.58))
+	apply.pressed.connect(func(): _resize_grid(int(_rows_spin.value), int(_cols_spin.value)))
+	row2.add_child(apply)
+	_hspace(row2, 14)
+
 	_lbl(row2, "Zoom:")
-	var z_out := _btn("−", Color(0.22, 0.22, 0.32))
+	_hspace(row2, 4)
+	var z_out := _btn("-", Color(0.22, 0.22, 0.32))
 	z_out.custom_minimum_size = Vector2(34, 0)
 	z_out.pressed.connect(_zoom_out)
 	row2.add_child(z_out)
@@ -538,11 +560,13 @@ func _sync_canvas() -> void:
 
 func _refresh_status() -> void:
 	var warn := ""
-	if not has_start: warn += "  ⚠ No Start"
-	if not has_end:   warn += "  ⚠ No End"
+	if not has_start: warn += "  ! No Start"
+	if not has_end:   warn += "  ! No End"
 	var tilt_info := ("   Tilt X:%d° Z:%d°" % [level_tilt_x, level_tilt_z]) if (level_tilt_x != 0 or level_tilt_z != 0) else ""
 	var marble_info := ("   Marble:%s" % level_marble_type) if level_marble_type != "sphere" else ""
-	_status_label.text = "  Tool: %s   Grid: %d × %d   File: \"%s\"   Timer: %ds%s%s%s" % [
+	if level_marble_size != 1.0:
+		marble_info += "   Size:x%.1f" % level_marble_size
+	_status_label.text = "  Tool: %s   Grid: %d x %d   File: \"%s\"   Timer: %ds%s%s%s" % [
 		TILE_LABELS[current_tool], grid_cols, grid_rows, level_name, level_timer, tilt_info, marble_info, warn
 	]
 
@@ -578,18 +602,20 @@ func _on_new() -> void:
 	level_tilt_x = 0
 	level_tilt_z = 0
 	level_marble_type = "sphere"
+	level_marble_size = 1.0
 	if _name_edit:  _name_edit.text  = level_name
 	if _title_edit: _title_edit.text = level_title
 	if _timer_spin: _timer_spin.value = level_timer
 	if _tilt_x_spin: _tilt_x_spin.value = level_tilt_x
 	if _tilt_z_spin: _tilt_z_spin.value = level_tilt_z
-	if _marble_option: _marble_option.selected = 0
+	if _marble_option:    _marble_option.selected = 0
+	if _marble_size_spin: _marble_size_spin.value = 1.0
 	_sync_canvas()
 	_refresh_status()
 
 func _on_save() -> void:
 	if not has_start or not has_end:
-		_status_label.text = "  ⚠ Cannot save — level needs both a Start (S) and End (G) tile."
+		_status_label.text = "  ! Cannot save - level needs both a Start (S) and End (G) tile."
 		return
 	var dir := "user://levels/"
 	DirAccess.make_dir_recursive_absolute(dir)
@@ -609,11 +635,11 @@ func _write_level(path: String) -> void:
 	# On web, user:// is backed by IndexedDB and must be explicitly flushed.
 	if OS.has_feature("web"):
 		JavaScriptBridge.eval("FS.syncfs(false, function(err){});")
-	_status_label.text = "  ✓ Saved → " + path
+	_status_label.text = "  Saved: " + path
 
 func _on_save_stock() -> void:
 	if not has_start or not has_end:
-		_status_label.text = "  ⚠ Cannot save — level needs both a Start (S) and End (G) tile."
+		_status_label.text = "  ! Cannot save - level needs both a Start (S) and End (G) tile."
 		return
 	var safe := level_name.strip_edges().replace(" ", "_")
 	if safe.is_empty(): safe = "untitled"
@@ -625,7 +651,7 @@ func _on_load() -> void:
 
 func _on_play() -> void:
 	if not has_start or not has_end:
-		_status_label.text = "  ⚠ Cannot test — level needs a Start (S) and End (G) tile."
+		_status_label.text = "  ! Cannot test - level needs a Start (S) and End (G) tile."
 		return
 	GameState.editor_level_content = _level_to_string()
 	GameState.editor_level_name = level_name

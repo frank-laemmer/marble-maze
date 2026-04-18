@@ -9,7 +9,7 @@ const CELL: float = 4.0  # must match LevelLoader.CELL
 
 const COLOR_FLOOR       := Color(0.52, 0.55, 0.62, 0.9)
 const COLOR_INVIS_FLOOR := Color(0.38, 0.38, 0.38, 0.9)   # darker grey — revealed only on Map tile
-const COLOR_WALL        := Color(0.15, 0.25, 0.48, 0.95)  # revealed only on Map tile
+const COLOR_WALL        := Color(0.38, 0.38, 0.38, 0.95)  # revealed only on Map tile
 const COLOR_INVIS_WALL  := Color(0.40, 0.68, 0.96, 0.95)  # bright blue — revealed only on Map tile
 const COLOR_FAKE_WALL   := Color(0.55, 0.35, 0.70, 0.95)  # purple — revealed only on Map tile
 const COLOR_MAP         := Color(0.15, 0.65, 0.72, 1.0)   # cyan — always visible

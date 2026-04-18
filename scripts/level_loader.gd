@@ -44,6 +44,8 @@ var level_tilt_x: int = 0
 var level_tilt_z: int = 0
 ## Marble shape override: "sphere" (default), "dice", "pyramid".
 var level_marble_type: String = "sphere"
+## Marble size multiplier; 1.0 = default, 0.5 = half, 2.0 = double.
+var level_marble_size: float = 1.0
 
 # ── Public API ────────────────────────────────────────────────────────────────
 
@@ -78,6 +80,7 @@ func _parse(content: String) -> Array:
 	level_tilt_x = 0
 	level_tilt_z = 0
 	level_marble_type = "sphere"
+	level_marble_size = 1.0
 
 	var rows: Array = []
 	for line in content.split("\n"):
@@ -93,7 +96,8 @@ func _parse(content: String) -> Array:
 						var parts := kv[1].split(",")
 						level_tilt_x = parts[0].to_int()
 						level_tilt_z = parts[1].to_int() if parts.size() > 1 else 0
-					"marble": level_marble_type = kv[1]
+					"marble":      level_marble_type = kv[1]
+					"marble_size": level_marble_size = kv[1].to_float()
 		else:
 			# Grid row — strip spaces/tabs so the old "S # . #" format still works.
 			var stripped := ""
@@ -152,7 +156,17 @@ func _build(rows: Array) -> Node3D:
 	fill.light_energy = 0.4
 	root.add_child(fill)
 
+	var sky_mat := ProceduralSkyMaterial.new()
+	sky_mat.sky_top_color      = Color(0.04, 0.10, 0.40)
+	sky_mat.sky_horizon_color  = Color(0.08, 0.18, 0.52)
+	sky_mat.ground_bottom_color   = Color(0.04, 0.04, 0.08)
+	sky_mat.ground_horizon_color  = Color(0.06, 0.14, 0.42)
+	sky_mat.sun_angle_max = 30.0
+	var sky := Sky.new()
+	sky.sky_material = sky_mat
 	var env := Environment.new()
+	env.background_mode  = Environment.BG_SKY
+	env.sky              = sky
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color  = Color(0.85, 0.88, 1.0)
 	env.ambient_light_energy = 1.0
@@ -166,10 +180,10 @@ func _build(rows: Array) -> Node3D:
 	var goal_mesh  := BoxMesh.new(); goal_mesh.size  = Vector3(CELL * 0.85, 0.12, CELL * 0.85)
 
 	var floor_mat := StandardMaterial3D.new()
-	floor_mat.albedo_color = Color(0.55, 0.58, 0.65)
+	floor_mat.albedo_color = Color(0.65, 0.65, 0.65)
 
 	var wall_mat := StandardMaterial3D.new()
-	wall_mat.albedo_color = Color(0.22, 0.32, 0.52)
+	wall_mat.albedo_color = Color(0.38, 0.38, 0.38)
 
 	var goal_mat := StandardMaterial3D.new()
 	goal_mat.albedo_color = Color(0.9, 0.75, 0.1)
@@ -247,6 +261,13 @@ func _build(rows: Array) -> Node3D:
 				fw_col.shape = fw_shp
 				fw.add_child(fw_col)
 				fw.call("setup", wall_mesh, wall_mat)
+				# Panel geometry attached to the fake wall so it fades with it.
+				var fw_panel_mat := StandardMaterial3D.new()
+				fw_panel_mat.albedo_color = Color(0.34, 0.34, 0.34)
+				fw_panel_mat.cull_mode    = BaseMaterial3D.CULL_DISABLED
+				var fw_panel := _fake_wall_panel(fw_panel_mat)
+				fw.add_child(fw_panel)
+				fw.call("register_panel", fw_panel, fw_panel_mat)
 				root.add_child(fw)
 			elif ch == "M":
 				_add_box(root, body, floor_mesh, map_mat,
@@ -347,7 +368,7 @@ func _build(rows: Array) -> Node3D:
 	dz.add_child(dz_col)
 	root.add_child(dz)
 
-	_add_grid_lines(root, grid, R, C)
+	_add_tile_panels(root, grid, R, C)
 	return root
 
 ## Returns "ns", "ew", or "" (fall back to wall) based on which pair of
@@ -364,63 +385,55 @@ func _detect_door_variant(grid: Array, ri: int, ci: int, R: int, C: int) -> Stri
 		return "ew"
 	return ""
 
-# Edge outlines on every visible tile. CULL_DISABLED so every quad is visible
-# from both sides regardless of camera angle. Wall tiles also get solid corner
-# posts at each vertical edge so adjacent face stripes meet without a gap.
-func _add_grid_lines(root: Node3D, g: Array[String], R: int, C: int) -> void:
-	var lw := 0.05  # stripe width — barely-there
+# One inset panel quad per face — slightly smaller than the tile, same accent
+# colour as the old border stripes.  Simpler and reads better at all zoom levels.
+func _add_tile_panels(root: Node3D, g: Array[String], R: int, C: int) -> void:
+	var lp  := 0.1   # inset from each edge
+	var off := 0.01  # offset above/outside surface to avoid z-fighting
 
-	# ~96 % of each surface's base colour
-	var floor_line_mat := StandardMaterial3D.new()
-	floor_line_mat.albedo_color = Color(0.588, 0.622, 0.7, 1.0)   # floor base: 0.55 0.58 0.65
-	floor_line_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	floor_line_mat.cull_mode    = BaseMaterial3D.CULL_DISABLED
+	var floor_mat := StandardMaterial3D.new()
+	floor_mat.albedo_color = Color(0.61, 0.61, 0.61)
+	floor_mat.cull_mode    = BaseMaterial3D.CULL_DISABLED
 
-	var wall_line_mat := StandardMaterial3D.new()
-	wall_line_mat.albedo_color = Color(0.239, 0.344, 0.57, 1.0)    # wall base: 0.22 0.32 0.52
-	wall_line_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	wall_line_mat.cull_mode    = BaseMaterial3D.CULL_DISABLED
+	var wall_mat := StandardMaterial3D.new()
+	wall_mat.albedo_color = Color(0.34, 0.34, 0.34)
+	wall_mat.cull_mode    = BaseMaterial3D.CULL_DISABLED
 
-	var wall_tiles := ["#", "F", "D", "E", "R", "H"]
+	var map_panel_mat := StandardMaterial3D.new()
+	map_panel_mat.albedo_color = Color(0.08, 0.50, 0.57)
+	map_panel_mat.cull_mode    = BaseMaterial3D.CULL_DISABLED
 
 	var st_f := SurfaceTool.new(); st_f.begin(Mesh.PRIMITIVE_TRIANGLES)
 	var st_w := SurfaceTool.new(); st_w.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var st_m := SurfaceTool.new(); st_m.begin(Mesh.PRIMITIVE_TRIANGLES)
+
+	var wall_tiles := ["#", "F", "D", "E", "R", "H"]
 
 	for ri in R:
 		for ci in g[ri].length():
 			var ch := g[ri][ci]
-			if ch == "_" or ch == "V" or ch == "I":
+			if ch == "_" or ch == "V" or ch == "F":
 				continue
-			var x := ci * CELL
-			var z := ri * CELL
+			var x0 := ci * CELL
+			var z0 := ri * CELL
 
 			if wall_tiles.has(ch):
-				var yt := WALL_H + 0.01   # just above wall-top surface
-				var wh := WALL_H + 0.01   # vertical faces extend to match yt → no top gap
-				# Top face border
-				_hquad(st_w, x,             x + CELL,     z,             z + lw,    yt)
-				_hquad(st_w, x,             x + CELL,     z + CELL - lw, z + CELL,  yt)
-				_hquad(st_w, x,             x + lw,       z,             z + CELL,  yt)
-				_hquad(st_w, x + CELL - lw, x + CELL,     z,             z + CELL,  yt)
-				# Vertical face borders — 0.01 outward offset, height = wh so top meets yt
-				_vface_z(st_w, x, x + CELL, wh, z - 0.01,        lw)  # north
-				_vface_z(st_w, x, x + CELL, wh, z + CELL + 0.01, lw)  # south
-				_vface_x(st_w, z, z + CELL, wh, x - 0.01,        lw)  # west
-				_vface_x(st_w, z, z + CELL, wh, x + CELL + 0.01, lw)  # east
-				# Corner posts — fill the gap between adjacent vertical face stripes
-				_box_st(st_w, x,        wh * 0.5, z,        lw, wh, lw)
-				_box_st(st_w, x + CELL, wh * 0.5, z,        lw, wh, lw)
-				_box_st(st_w, x,        wh * 0.5, z + CELL, lw, wh, lw)
-				_box_st(st_w, x + CELL, wh * 0.5, z + CELL, lw, wh, lw)
+				# Top panel
+				_hquad(st_w, x0 + lp, x0 + CELL - lp, z0 + lp, z0 + CELL - lp, WALL_H + off)
+				# Four side panels
+				_vquad_z(st_w, x0 + lp, x0 + CELL - lp, lp, WALL_H - lp, z0 - off)
+				_vquad_z(st_w, x0 + lp, x0 + CELL - lp, lp, WALL_H - lp, z0 + CELL + off)
+				_vquad_x(st_w, z0 + lp, z0 + CELL - lp, lp, WALL_H - lp, x0 - off)
+				_vquad_x(st_w, z0 + lp, z0 + CELL - lp, lp, WALL_H - lp, x0 + CELL + off)
+			elif ch == "M":
+				_hquad(st_m, x0 + lp, x0 + CELL - lp, z0 + lp, z0 + CELL - lp, off)
 			else:
-				var yf := 0.01
-				_hquad(st_f, x,             x + CELL,     z,             z + lw,    yf)
-				_hquad(st_f, x,             x + CELL,     z + CELL - lw, z + CELL,  yf)
-				_hquad(st_f, x,             x + lw,       z,             z + CELL,  yf)
-				_hquad(st_f, x + CELL - lw, x + CELL,     z,             z + CELL,  yf)
+				# Floor panel — includes I (invisible-wall) tiles so their floor reads clearly
+				_hquad(st_f, x0 + lp, x0 + CELL - lp, z0 + lp, z0 + CELL - lp, off)
 
-	_commit_lines(root, st_f, floor_line_mat)
-	_commit_lines(root, st_w, wall_line_mat)
+	_commit_lines(root, st_f, floor_mat)
+	_commit_lines(root, st_w, wall_mat)
+	_commit_lines(root, st_m, map_panel_mat)
 
 
 func _commit_lines(root: Node3D, st: SurfaceTool, mat: StandardMaterial3D) -> void:
@@ -431,36 +444,6 @@ func _commit_lines(root: Node3D, st: SurfaceTool, mat: StandardMaterial3D) -> vo
 	vis.mesh = mesh
 	vis.material_override = mat
 	root.add_child(vis)
-
-
-# Four border stripes on a vertical face at constant z (north/south wall face)
-func _vface_z(st: SurfaceTool, x0: float, x1: float, wh: float, zf: float, lw: float) -> void:
-	_vquad_z(st, x0,        x1,        0.0,     lw,  zf)
-	_vquad_z(st, x0,        x1,        wh - lw, wh,  zf)
-	_vquad_z(st, x0,        x0 + lw,   0.0,     wh,  zf)
-	_vquad_z(st, x1 - lw,   x1,        0.0,     wh,  zf)
-
-
-# Four border stripes on a vertical face at constant x (west/east wall face)
-func _vface_x(st: SurfaceTool, z0: float, z1: float, wh: float, xf: float, lw: float) -> void:
-	_vquad_x(st, z0,        z1,        0.0,     lw,  xf)
-	_vquad_x(st, z0,        z1,        wh - lw, wh,  xf)
-	_vquad_x(st, z0,        z0 + lw,   0.0,     wh,  xf)
-	_vquad_x(st, z1 - lw,   z1,        0.0,     wh,  xf)
-
-
-# Solid box added to a SurfaceTool (CULL_DISABLED so winding doesn't matter)
-func _box_st(st: SurfaceTool, cx: float, cy: float, cz: float,
-			 sx: float, sy: float, sz: float) -> void:
-	var x0 := cx - sx * 0.5; var x1 := cx + sx * 0.5
-	var y0 := cy - sy * 0.5; var y1 := cy + sy * 0.5
-	var z0 := cz - sz * 0.5; var z1 := cz + sz * 0.5
-	_hquad(st, x0, x1, z0, z1, y1)   # top
-	_hquad(st, x0, x1, z0, z1, y0)   # bottom
-	_vquad_z(st, x0, x1, y0, y1, z0) # north
-	_vquad_z(st, x0, x1, y0, y1, z1) # south
-	_vquad_x(st, z0, z1, y0, y1, x0) # west
-	_vquad_x(st, z0, z1, y0, y1, x1) # east
 
 
 # Horizontal quad at constant y
@@ -491,6 +474,26 @@ func _vquad_x(st: SurfaceTool, z0: float, z1: float, y0: float, y1: float, x: fl
 	st.add_vertex(Vector3(x, y0, z0))
 	st.add_vertex(Vector3(x, y1, z1))
 	st.add_vertex(Vector3(x, y1, z0))
+
+
+# Panel mesh in the local space of a fake-wall Area3D (centred at WALL_H/2).
+# Mirrors the geometry _add_tile_panels() would emit for a wall tile.
+func _fake_wall_panel(mat: StandardMaterial3D) -> MeshInstance3D:
+	var lp    := 0.1
+	var off   := 0.01
+	var half  := CELL   * 0.5   # 2.0  — half tile width
+	var half_h := WALL_H * 0.5  # 2.0  — half wall height (Area3D Y-origin)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	_hquad(st, -half+lp,  half-lp, -half+lp,  half-lp, half_h + off)
+	_vquad_z(st, -half+lp, half-lp, lp-half_h, half_h-lp, -half-off)
+	_vquad_z(st, -half+lp, half-lp, lp-half_h, half_h-lp,  half+off)
+	_vquad_x(st, -half+lp, half-lp, lp-half_h, half_h-lp, -half-off)
+	_vquad_x(st, -half+lp, half-lp, lp-half_h, half_h-lp,  half+off)
+	var vis := MeshInstance3D.new()
+	vis.mesh = st.commit()
+	vis.material_override = mat
+	return vis
 
 
 func _add_box(root: Node3D, body: StaticBody3D,

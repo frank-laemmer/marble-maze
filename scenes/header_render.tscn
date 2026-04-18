@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://header_render01"]
+
+[ext_resource type="Script" path="res://scripts/header_render.gd" id="1"]
+
+[node name="HeaderRender" type="Node"]
+script = ExtResource("1")

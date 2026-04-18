@@ -64,11 +64,8 @@ func _ready() -> void:
 	physics_material_override = mat
 
 	_ground_ray = RayCast3D.new()
-	_ground_ray.target_position = Vector3(0.0, -1.3, 0.0)
 	add_child(_ground_ray)
 
-	# Shift the view so the marble sits in the lower-left area of the screen,
-	# clear of the minimap in the top-right corner.
 	_camera.h_offset = 4.0
 	_camera.v_offset = 1.5
 
@@ -77,10 +74,21 @@ func _ready() -> void:
 		"pyramid": _setup_pyramid()
 		_:         _setup_sphere()
 
+	var s := LevelLoader.level_marble_size
+	_ground_ray.target_position = Vector3(0.0, -1.4 * s, 0.0)
+
 	_apply_cam_rotation()
 
 
 func _setup_sphere() -> void:
+	var s := LevelLoader.level_marble_size
+	var sphere_mesh := SphereMesh.new()
+	sphere_mesh.radius = 0.6 * s
+	sphere_mesh.height = 1.2 * s
+	_mesh.mesh = sphere_mesh
+	var sphere_shp := SphereShape3D.new()
+	sphere_shp.radius = 0.6 * s
+	_col.shape = sphere_shp
 	var marble_mat := ShaderMaterial.new()
 	marble_mat.shader = preload("res://shaders/marble.gdshader")
 	_mesh.material_override = marble_mat
@@ -89,12 +97,13 @@ func _setup_sphere() -> void:
 func _setup_dice() -> void:
 	_is_dice = true
 
+	var s := LevelLoader.level_marble_size
 	var box_shp := BoxShape3D.new()
-	box_shp.size = Vector3(1.0, 1.0, 1.0)
+	box_shp.size = Vector3(1.2, 1.2, 1.2) * s
 	_col.shape = box_shp
 
 	var box_mesh := BoxMesh.new()
-	box_mesh.size = Vector3(1.0, 1.0, 1.0)
+	box_mesh.size = Vector3(1.2, 1.2, 1.2) * s
 	_mesh.mesh = box_mesh
 
 	# Heavy damping so the dice settles face-down instead of spinning freely.
@@ -108,17 +117,20 @@ func _setup_dice() -> void:
 	physics_material_override = dice_phys
 
 	var mat := StandardMaterial3D.new()
-	mat.albedo_color = Color(0.95, 0.92, 0.85)
+	mat.albedo_color = Color(0.08, 0.72, 0.12)
+	mat.roughness    = 0.25
+	mat.metallic     = 0.12
 	_mesh.material_override = mat
 
 
 func _setup_pyramid() -> void:
 	# Square pyramid: base at y=-0.35, apex at y=0.65 (height=1.0, base halfwidth=0.5)
-	var apex := Vector3( 0.0,  0.65,  0.0)
-	var bl   := Vector3(-0.5, -0.35, -0.5)
-	var br   := Vector3( 0.5, -0.35, -0.5)
-	var fr   := Vector3( 0.5, -0.35,  0.5)
-	var fl   := Vector3(-0.5, -0.35,  0.5)
+	var s := LevelLoader.level_marble_size
+	var apex := Vector3( 0.0,  0.65,  0.0) * s
+	var bl   := Vector3(-0.5, -0.35, -0.5) * s
+	var br   := Vector3( 0.5, -0.35, -0.5) * s
+	var fr   := Vector3( 0.5, -0.35,  0.5) * s
+	var fl   := Vector3(-0.5, -0.35,  0.5) * s
 
 	var poly := ConvexPolygonShape3D.new()
 	poly.points = PackedVector3Array([apex, bl, br, fr, fl])
@@ -311,7 +323,7 @@ func _physics_process(delta: float) -> void:
 ## For all other shapes, force goes through the centre of mass as before.
 func _apply_movement_force(force: Vector3) -> void:
 	if _is_dice:
-		apply_force(force, Vector3(0, 0.5, 0))
+		apply_force(force, Vector3(0, 0.6 * LevelLoader.level_marble_size, 0))
 	else:
 		apply_central_force(force)
 
