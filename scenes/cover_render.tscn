@@ -1,0 +1,6 @@
+[gd_scene format=3 uid="uid://cover_render01"]
+
+[ext_resource type="Script" path="res://scripts/cover_render.gd" id="1"]
+
+[node name="CoverRender" type="Node"]
+script = ExtResource("1")
