@@ -12,19 +12,19 @@ extends Control
 
 enum TileType { EMPTY = 0, FLOOR = 1, WALL = 2, START = 3, END = 4, MAP = 5, INVIS_WALL = 6, FAKE_WALL = 7, KEY_Y = 8, DOOR_Y = 9, INVIS_FLOOR = 10, KEY_G = 11, DOOR_G = 12, KEY_R = 13, DOOR_R = 14 }
 
-const TILE_LABELS  : Array = ["Empty", "Floor", "Wall", "Start", "End", "Map Tile", "Invis Wall", "Fake Wall", "Key (Yellow)", "Door (Yellow)", "Invis Floor", "Key (Green)", "Door (Green)", "Key (Red)", "Door (Red)"]
+const TILE_LABELS  : Array = ["Empty", "Floor", "Wall", "Start", "End", "Map Tile", "Hidden Wall", "Fake Wall", "Key (Yellow)", "Door (Yellow)", "Hidden Floor", "Key (Green)", "Door (Green)", "Key (Red)", "Door (Red)"]
 const TILE_COLORS  : Array = [
 	Color(0.10, 0.10, 0.13),
 	Color(0.65, 0.65, 0.65),
-	Color(0.38, 0.38, 0.38),
+	Color(0.20, 0.30, 0.50),   # WALL       — dark blue (matches canvas)
 	Color(0.15, 0.78, 0.22),
 	Color(0.88, 0.73, 0.08),
 	Color(0.15, 0.65, 0.72),  # MAP        — teal
-	Color(0.38, 0.62, 0.88),  # INVIS_WALL — steel blue
-	Color(0.58, 0.30, 0.68),  # FAKE_WALL  — purple
+	Color(0.38, 0.62, 0.88),  # INVIS_WALL — steel blue (matches canvas)
+	Color(0.58, 0.30, 0.68),  # FAKE_WALL  — purple (matches canvas)
 	Color(0.92, 0.74, 0.10),  # KEY_Y      — gold
 	Color(0.20, 0.38, 0.62),  # DOOR_Y     — dark blue
-	Color(0.38, 0.38, 0.38),  # INVIS_FLOOR — neutral grey
+	Color(0.22, 0.22, 0.22),  # INVIS_FLOOR — very dark grey
 	Color(0.18, 0.72, 0.26),  # KEY_G      — green
 	Color(0.14, 0.34, 0.20),  # DOOR_G     — dark green
 	Color(0.82, 0.18, 0.18),  # KEY_R      — red
@@ -471,22 +471,39 @@ func _build_palette() -> PanelContainer:
 
 	_tile_buttons.clear()
 	for i in TILE_LABELS.size():
-		# Hide key/door tiles when the feature is disabled
-		if not GameState.FEATURE_KEYS_DOORS and i in [
-				TileType.KEY_Y, TileType.DOOR_Y,
-				TileType.KEY_G, TileType.DOOR_G,
-				TileType.KEY_R, TileType.DOOR_R]:
-			_tile_buttons.append(null)
-			continue
-		var b := Button.new()
-		b.text = "  " + TILE_LABELS[i]
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.custom_minimum_size = Vector2(0, 34)
-		var idx := i
-		b.pressed.connect(func(): _select_tool(idx))
-		_tile_buttons.append(b)
-		vbox.add_child(b)
-		_style_tile_btn(b, i, i == current_tool)
+		_tile_buttons.append(null)
+
+	var groups: Array = [
+		["",       [TileType.EMPTY, TileType.START, TileType.END]],
+		["Floors", [TileType.FLOOR, TileType.INVIS_FLOOR, TileType.MAP]],
+		["Walls",  [TileType.WALL,  TileType.INVIS_WALL,  TileType.FAKE_WALL]],
+	]
+	if GameState.FEATURE_KEYS_DOORS:
+		groups.append(["Keys & Doors", [
+			TileType.KEY_Y, TileType.DOOR_Y,
+			TileType.KEY_G, TileType.DOOR_G,
+			TileType.KEY_R, TileType.DOOR_R,
+		]])
+
+	for group in groups:
+		var header: String = group[0]
+		if header != "":
+			var sep := Label.new()
+			sep.text = header
+			sep.add_theme_color_override("font_color", Color(0.55, 0.55, 0.70))
+			sep.add_theme_font_size_override("font_size", 11)
+			sep.add_theme_constant_override("margin_top", 6)
+			vbox.add_child(sep)
+		for i in (group[1] as Array):
+			var b := Button.new()
+			b.text = TILE_LABELS[i]
+			b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+			b.custom_minimum_size = Vector2(0, 34)
+			var idx: int = i
+			b.pressed.connect(func(): _select_tool(idx))
+			_tile_buttons[i] = b
+			vbox.add_child(b)
+			_style_tile_btn(b, i, i == current_tool)
 
 	var hint := Label.new()
 	hint.text = "\nLMB paint\nRMB erase\n\nOne Start\n& one End."
@@ -538,17 +555,25 @@ func _hspace(parent: HBoxContainer, w: int) -> void:
 	parent.add_child(s)
 
 func _style_tile_btn(btn: Button, idx: int, selected: bool) -> void:
-	var base: Color = TILE_COLORS[idx]
+	btn.icon = _make_dot_icon(TILE_COLORS[idx])
+
+	var bg := Color(0.22, 0.22, 0.30) if selected else Color(0.14, 0.14, 0.20)
 	var s := StyleBoxFlat.new()
-	s.bg_color = base if selected else base.darkened(0.45)
+	s.bg_color = bg
 	s.set_corner_radius_all(3)
 	if selected:
 		s.border_width_left = 3; s.border_color = Color.WHITE
 	btn.add_theme_stylebox_override("normal", s)
 	var h := s.duplicate() as StyleBoxFlat
-	h.bg_color = base.lightened(0.1) if selected else base.darkened(0.25)
+	h.bg_color = bg.lightened(0.12)
 	btn.add_theme_stylebox_override("hover", h)
-	btn.add_theme_color_override("font_color", Color.WHITE)
+	btn.add_theme_color_override("font_color",
+		Color(1.0, 1.0, 1.0) if selected else Color(0.78, 0.78, 0.88))
+
+func _make_dot_icon(color: Color, size: int = 12) -> ImageTexture:
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(color)
+	return ImageTexture.create_from_image(img)
 
 func _sync_canvas() -> void:
 	if not _grid_canvas:

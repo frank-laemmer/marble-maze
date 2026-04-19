@@ -10,19 +10,31 @@ const CELL: float = 4.0  # must match LevelLoader.CELL
 const COLOR_FLOOR       := Color(0.52, 0.55, 0.62, 0.9)
 const COLOR_INVIS_FLOOR := Color(0.38, 0.38, 0.38, 0.9)   # darker grey — revealed only on Map tile
 const COLOR_WALL        := Color(0.38, 0.38, 0.38, 0.95)  # revealed only on Map tile
-const COLOR_INVIS_WALL  := Color(0.40, 0.68, 0.96, 0.95)  # bright blue — revealed only on Map tile
+const COLOR_INVIS_WALL  := Color(0.60, 0.60, 0.60, 0.95)  # light grey — revealed only on Map tile
 const COLOR_FAKE_WALL   := Color(0.55, 0.35, 0.70, 0.95)  # purple — revealed only on Map tile
 const COLOR_MAP         := Color(0.15, 0.65, 0.72, 1.0)   # cyan — always visible
 const COLOR_START       := Color(0.2,  1.0,  0.4,  1.0)
 const COLOR_GOAL        := Color(1.0,  0.8,  0.1,  1.0)
 
 var _marble: Node3D
+var _map_reveal_active := false
 
 func _ready() -> void:
 	_marble = get_tree().get_first_node_in_group("marble")
 
 func _process(_delta: float) -> void:
 	queue_redraw()
+	if _marble and not LevelLoader.grid.is_empty():
+		var mp  := _marble.global_position
+		var mc  := int(mp.x / CELL)
+		var mr  := int(mp.z / CELL)
+		var rows := LevelLoader.grid_rows
+		var cols := LevelLoader.grid_cols
+		var active := (mr >= 0 and mr < rows and mc >= 0 and mc < cols
+		               and LevelLoader.grid[mr][mc] == "M")
+		if active != _map_reveal_active:
+			_map_reveal_active = active
+			LevelLoader.set_map_reveal(active)
 
 func _draw() -> void:
 	if LevelLoader.grid.is_empty():
@@ -43,14 +55,7 @@ func _draw() -> void:
 	var ox := (w - map_w) * 0.5
 	var oy := (h - map_h) * 0.5
 
-	# ── Check whether the marble is on a Map tile ─────────────────────────────
-	var show_walls := false
-	if _marble:
-		var mp := _marble.global_position
-		var mc := int(mp.x / CELL)
-		var mr := int(mp.z / CELL)
-		if mr >= 0 and mr < rows and mc >= 0 and mc < cols:
-			show_walls = (LevelLoader.grid[mr][mc] == "M")
+	var show_walls := _map_reveal_active
 
 	# ── Grid cells ────────────────────────────────────────────────────────────
 	for ri in rows:

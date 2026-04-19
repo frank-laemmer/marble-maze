@@ -22,7 +22,8 @@ const FLOOR_Y : float = -0.25
 const FLOOR_H : float = 0.5
 
 const _GOAL_SCRIPT          = preload("res://scripts/goal_zone.gd")
-const _INVISIBLE_WALL_SCRIPT = preload("res://scripts/invisible_wall.gd")
+const _INVISIBLE_WALL_SCRIPT  = preload("res://scripts/invisible_wall.gd")
+const _INVISIBLE_FLOOR_SCRIPT = preload("res://scripts/invisible_floor.gd")
 const _FAKE_WALL_SCRIPT      = preload("res://scripts/fake_wall.gd")
 const _KEY_ITEM_SCRIPT       = preload("res://scripts/key_item.gd")
 const _DOOR_SCRIPT           = preload("res://scripts/door.gd")
@@ -47,6 +48,11 @@ var level_marble_type: String = "sphere"
 ## Marble size multiplier; 1.0 = default, 0.5 = half, 2.0 = double.
 var level_marble_size: float = 1.0
 
+# ── Map-reveal node lists (reset each build) ─────────────────────────────────
+var _invis_wall_nodes  : Array[Area3D] = []
+var _invis_floor_nodes : Array[Area3D] = []
+var _fake_wall_nodes   : Array[Area3D] = []
+
 # ── Public API ────────────────────────────────────────────────────────────────
 
 ## Parse only the metadata (name/timer) from raw level content without building
@@ -70,6 +76,19 @@ func build_from_string(content: String) -> Node3D:
 		push_error("LevelLoader: empty level content")
 		return null
 	return _build(rows)
+
+## Show or hide invisible/fake tiles in 3D — called by the minimap when the
+## marble steps on or off a Map ('M') tile.
+func set_map_reveal(active: bool) -> void:
+	for iw in _invis_wall_nodes:
+		if is_instance_valid(iw):
+			iw.set_map_reveal(active)
+	for vf in _invis_floor_nodes:
+		if is_instance_valid(vf):
+			vf.set_map_reveal(active)
+	for fw in _fake_wall_nodes:
+		if is_instance_valid(fw):
+			fw.set_map_reveal(active)
 
 # ── Parsing ───────────────────────────────────────────────────────────────────
 
@@ -111,6 +130,10 @@ func _parse(content: String) -> Array:
 # ── Scene building ────────────────────────────────────────────────────────────
 
 func _build(rows: Array) -> Node3D:
+	_invis_wall_nodes.clear()
+	_invis_floor_nodes.clear()
+	_fake_wall_nodes.clear()
+
 	var R: int = rows.size()
 	var C: int = 0
 	for row in rows:
@@ -246,6 +269,7 @@ func _build(rows: Array) -> Node3D:
 				iw.add_child(iw_col)
 				iw.call("setup", wall_mesh, wall_mat)
 				root.add_child(iw)
+				_invis_wall_nodes.append(iw)
 			elif ch == "F":
 				# Floor underneath
 				_add_box(root, body, floor_mesh, floor_mat,
@@ -269,6 +293,7 @@ func _build(rows: Array) -> Node3D:
 				fw.add_child(fw_panel)
 				fw.call("register_panel", fw_panel, fw_panel_mat)
 				root.add_child(fw)
+				_fake_wall_nodes.append(fw)
 			elif ch == "M":
 				_add_box(root, body, floor_mesh, map_mat,
 						 Vector3(cx, FLOOR_Y, cz),
@@ -312,12 +337,24 @@ func _build(rows: Array) -> Node3D:
 							 Vector3(cx, WALL_H * 0.5, cz),
 							 Vector3(CELL, WALL_H, CELL))
 			elif ch == "V":
-				# Invisible floor — collision only, no visual mesh
+				# Invisible floor — solid collision on MazeBody + Area3D for detection/ghost
 				var v_col := CollisionShape3D.new()
 				var v_shp := BoxShape3D.new(); v_shp.size = Vector3(CELL, FLOOR_H, CELL)
 				v_col.shape = v_shp
 				v_col.position = Vector3(cx, FLOOR_Y, cz)
 				body.add_child(v_col)
+				var vf := Area3D.new()
+				vf.position = Vector3(cx, FLOOR_Y, cz)
+				vf.set_script(_INVISIBLE_FLOOR_SCRIPT)
+				var vf_col := CollisionShape3D.new()
+				var vf_shp := BoxShape3D.new()
+				vf_shp.size = Vector3(CELL, 2.0, CELL)
+				vf_col.shape = vf_shp
+				vf_col.position = Vector3(0.0, 1.25, 0.0)  # detection box spans y=0..2 in world space
+				vf.add_child(vf_col)
+				vf.call("setup", floor_mesh)
+				root.add_child(vf)
+				_invis_floor_nodes.append(vf)
 			else:
 				# . S G  — all get a floor tile
 				_add_box(root, body, floor_mesh, floor_mat,
