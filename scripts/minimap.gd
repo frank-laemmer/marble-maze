@@ -18,16 +18,21 @@ const COLOR_GOAL        := Color(1.0,  0.8,  0.1,  1.0)
 
 var _marble: Node3D
 var _map_reveal_active := false
+var _last_mc := -1
+var _last_mr := -1
 
 func _ready() -> void:
 	_marble = get_tree().get_first_node_in_group("marble")
 
 func _process(_delta: float) -> void:
-	queue_redraw()
 	if _marble and not LevelLoader.grid.is_empty():
 		var mp  := _marble.global_position
 		var mc  := int(mp.x / CELL)
 		var mr  := int(mp.z / CELL)
+		if mc != _last_mc or mr != _last_mr:
+			_last_mc = mc
+			_last_mr = mr
+			queue_redraw()
 		var rows := LevelLoader.grid_rows
 		var cols := LevelLoader.grid_cols
 		var active := (mr >= 0 and mr < rows and mc >= 0 and mc < cols
@@ -35,6 +40,8 @@ func _process(_delta: float) -> void:
 		if active != _map_reveal_active:
 			_map_reveal_active = active
 			LevelLoader.set_map_reveal(active)
+	else:
+		queue_redraw()
 
 func _draw() -> void:
 	if LevelLoader.grid.is_empty():
