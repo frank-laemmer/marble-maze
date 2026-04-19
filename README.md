@@ -38,7 +38,7 @@ On first launch, macOS will prevent the app from running. Go to **System Setting
 
 ## Features
 
-- 14 levels
+- Fun built-in levels
 - Level editor to create your own
 - Minimap
 - Fun tiles
