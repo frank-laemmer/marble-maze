@@ -77,7 +77,7 @@ func _build_ui() -> void:
 	var title := Label.new()
 	title.text = "Marble Maze"
 	title.add_theme_font_override("font", _make_font(700))
-	title.add_theme_font_size_override("font_size", 52)
+	title.add_theme_font_size_override("font_size", 64)
 	title.add_theme_color_override("font_color", Color(0.92, 0.88, 1.0))
 	col.add_child(title)
 
@@ -85,7 +85,7 @@ func _build_ui() -> void:
 
 	var sub := Label.new()
 	sub.text = "A 3D marble maze game by Claude, Frank, Martha & Falk"
-	sub.add_theme_font_size_override("font_size", 15)
+	sub.add_theme_font_size_override("font_size", 18)
 	sub.add_theme_color_override("font_color", Color(0.36, 0.36, 0.52))
 	col.add_child(sub)
 
@@ -107,7 +107,8 @@ func _build_ui() -> void:
 
 	for b in [_play_btn, edit_btn, how_btn, options_btn, about_btn]:
 		col.add_child(b); _vgap(col, 3)
-	col.add_child(quit_btn)
+	if not OS.has_feature("web"):
+		col.add_child(quit_btn)
 
 	_play_btn.grab_focus()
 
@@ -117,7 +118,7 @@ func _big_btn(label: String) -> Button:
 	b.custom_minimum_size = Vector2(0, 52)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.add_theme_font_override("font", _make_font(600))
-	b.add_theme_font_size_override("font_size", 19)
+	b.add_theme_font_size_override("font_size", 23)
 	b.add_theme_color_override("font_color", Color(0.82, 0.82, 0.94))
 	b.focus_mode = Control.FOCUS_ALL
 

@@ -1,9 +1,9 @@
 GODOT ?= godot
 
 # Run all render scenes in sequence
-.PHONY: renders icon header screenshots cover
+.PHONY: renders icon header screenshots cover splash
 
-renders: icon header cover screenshots
+renders: icon header cover splash screenshots
 
 icon:
 	$(GODOT) "$(CURDIR)/scenes/icon_render.tscn"
@@ -13,6 +13,9 @@ header:
 
 cover:
 	$(GODOT) "$(CURDIR)/scenes/cover_render.tscn"
+
+splash:
+	$(GODOT) "$(CURDIR)/scenes/splash_render.tscn"
 
 screenshots:
 	$(GODOT) "$(CURDIR)/scenes/screenshot_render.tscn"
