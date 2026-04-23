@@ -92,7 +92,7 @@ func _draw() -> void:
 				col = COLOR_FLOOR
 			draw_rect(
 				Rect2(ox + float(ci) * cell_px, oy + float(ri) * cell_px,
-				      cell_px - 1.0, cell_px - 1.0),
+				      cell_px, cell_px),
 				col)
 
 	# ── Start — green square (drawn on top of the floor colour) ───────────────
@@ -102,12 +102,12 @@ func _draw() -> void:
 	               cell_px - 3.0, cell_px - 3.0),
 	          COLOR_START)
 
-	# ── Goal — gold square ────────────────────────────────────────────────────
-	var gc := LevelLoader.goal_cell
-	draw_rect(Rect2(ox + float(gc.x) * cell_px + 1.0,
-	               oy + float(gc.y) * cell_px + 1.0,
-	               cell_px - 3.0, cell_px - 3.0),
-	          COLOR_GOAL)
+	# ── Goals — gold square for every G tile ─────────────────────────────────
+	for gc in LevelLoader.goal_cells:
+		draw_rect(Rect2(ox + float(gc.x) * cell_px + 1.0,
+		               oy + float(gc.y) * cell_px + 1.0,
+		               cell_px - 3.0, cell_px - 3.0),
+		          COLOR_GOAL)
 
 	# ── Marble — bright yellow dot with dark outline ──────────────────────────
 	if _marble:
@@ -118,5 +118,3 @@ func _draw() -> void:
 		draw_circle(Vector2(mx, my), r + 1.5, Color(0.0, 0.0, 0.0, 0.85))
 		draw_circle(Vector2(mx, my), r,       Color(1.0, 0.95, 0.25, 1.0))
 
-	# ── Panel border ──────────────────────────────────────────────────────────
-	draw_rect(Rect2(0.0, 0.0, w, h), Color(0.4, 0.5, 0.75, 0.6), false, 1.5)

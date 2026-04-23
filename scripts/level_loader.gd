@@ -32,8 +32,10 @@ const _DOOR_SCRIPT           = preload("res://scripts/door.gd")
 var grid: Array[String] = []
 var grid_rows: int = 0
 var grid_cols: int = 0
-var start_cell: Vector2i = Vector2i.ZERO
-var goal_cell:  Vector2i = Vector2i.ZERO
+var start_cell:  Vector2i = Vector2i.ZERO   # first start (minimap compat)
+var goal_cell:   Vector2i = Vector2i.ZERO   # first goal  (minimap compat)
+var start_cells: Array[Vector2i] = []       # all start positions
+var goal_cells:  Array[Vector2i] = []       # all goal positions
 
 # ── Level metadata (populated after each build_from_*) ────────────────────────
 ## Time limit in seconds; defaults to 180 if not set in the level file.
@@ -47,6 +49,10 @@ var level_tilt_z: int = 0
 var level_marble_type: String = "sphere"
 ## Marble size multiplier; 1.0 = default, 0.5 = half, 2.0 = double.
 var level_marble_size: float = 1.0
+## Control mode: "normal" (default), "inverted" (flip all input), "drunk" (sluggish build-up/slow-down).
+var level_mode: String = "normal"
+## Whether to show the minimap during play; false by default.
+var level_show_minimap: bool = false
 
 # ── Map-reveal node lists (reset each build) ─────────────────────────────────
 var _invis_wall_nodes  : Array[Area3D] = []
@@ -100,6 +106,8 @@ func _parse(content: String) -> Array:
 	level_tilt_z = 0
 	level_marble_type = "sphere"
 	level_marble_size = 1.0
+	level_mode = "normal"
+	level_show_minimap = false
 
 	var rows: Array = []
 	for line in content.split("\n"):
@@ -117,6 +125,8 @@ func _parse(content: String) -> Array:
 						level_tilt_z = parts[1].to_int() if parts.size() > 1 else 0
 					"marble":      level_marble_type = kv[1]
 					"marble_size": level_marble_size = kv[1].to_float()
+					"mode":        level_mode = kv[1]
+					"minimap":     level_show_minimap = (kv[1] == "show")
 		else:
 			# Grid row — strip spaces/tabs so the old "S # . #" format still works.
 			var stripped := ""
@@ -144,22 +154,27 @@ func _build(rows: Array) -> Node3D:
 	for row in rows:
 		grid.append((row as String).rpad(C, "."))
 
-	# Locate start (S) and goal (G); fall back to corners
-	var start_col := 0; var start_row := 0
-	var goal_col  := C - 1; var goal_row  := R - 1
+	# Locate all start (S) and goal (G) positions; fall back to corners
+	var s_cells: Array[Vector2i] = []
+	var g_cells: Array[Vector2i] = []
 
 	for ri in R:
 		for ci in grid[ri].length():
 			match grid[ri][ci]:
-				"S": start_col = ci; start_row = ri
-				"G": goal_col  = ci; goal_row  = ri
+				"S": s_cells.append(Vector2i(ci, ri))
+				"G": g_cells.append(Vector2i(ci, ri))
+
+	if s_cells.is_empty(): s_cells.append(Vector2i(0, 0))
+	if g_cells.is_empty(): g_cells.append(Vector2i(C - 1, R - 1))
 
 	# ── Expose grid state for the minimap ────────────────────────────────────
-	self.grid  = grid
-	grid_rows  = R
-	grid_cols  = C
-	start_cell = Vector2i(start_col, start_row)
-	goal_cell  = Vector2i(goal_col,  goal_row)
+	self.grid   = grid
+	grid_rows   = R
+	grid_cols   = C
+	start_cells = s_cells
+	goal_cells  = g_cells
+	start_cell  = s_cells[0]
+	goal_cell   = g_cells[0]
 
 	# ── Root node ─────────────────────────────────────────────────────────────
 	var root := Node3D.new()
@@ -349,36 +364,38 @@ func _build(rows: Array) -> Node3D:
 						 Vector3(cx, FLOOR_Y, cz),
 						 Vector3(CELL, FLOOR_H, CELL))
 
-	# ── Start marker ───────────────────────────────────────────────────────────
-	var sx := start_col * CELL + CELL * 0.5
-	var sz := start_row * CELL + CELL * 0.5
-	var sm := Marker3D.new()
-	sm.name = "StartMarker"
-	sm.position = Vector3(sx, 1.0, sz)
-	sm.add_to_group("start_marker")
-	root.add_child(sm)
+	# ── Start markers (one per S tile) ────────────────────────────────────────
+	for sc in s_cells:
+		var sx := sc.x * CELL + CELL * 0.5
+		var sz := sc.y * CELL + CELL * 0.5
+		var sm := Marker3D.new()
+		sm.name = "StartMarker_%d_%d" % [sc.y, sc.x]
+		sm.position = Vector3(sx, 1.0, sz)
+		sm.add_to_group("start_marker")
+		root.add_child(sm)
 
-	# ── Goal zone ──────────────────────────────────────────────────────────────
-	var gx := goal_col * CELL + CELL * 0.5
-	var gz := goal_row * CELL + CELL * 0.5
+	# ── Goal zones (one per G tile) ────────────────────────────────────────────
+	for gc in g_cells:
+		var gx := gc.x * CELL + CELL * 0.5
+		var gz := gc.y * CELL + CELL * 0.5
 
-	var gz_node := Area3D.new()
-	gz_node.name = "GoalZone"
-	gz_node.position = Vector3(gx, 1.0, gz)
-	gz_node.add_to_group("goal_zone")
-	gz_node.set_script(_GOAL_SCRIPT)
-	var gz_col := CollisionShape3D.new()
-	var gz_shp := BoxShape3D.new(); gz_shp.size = Vector3(2.5, 2.5, 2.5)
-	gz_col.shape = gz_shp
-	gz_node.add_child(gz_col)
-	root.add_child(gz_node)
+		var gz_node := Area3D.new()
+		gz_node.name = "GoalZone_%d_%d" % [gc.y, gc.x]
+		gz_node.position = Vector3(gx, 1.0, gz)
+		gz_node.add_to_group("goal_zone")
+		gz_node.set_script(_GOAL_SCRIPT)
+		var gz_col := CollisionShape3D.new()
+		var gz_shp := BoxShape3D.new(); gz_shp.size = Vector3(2.5, 2.5, 2.5)
+		gz_col.shape = gz_shp
+		gz_node.add_child(gz_col)
+		root.add_child(gz_node)
 
-	# Goal visual marker (glowing gold pad)
-	var gv := MeshInstance3D.new()
-	gv.mesh = goal_mesh
-	gv.material_override = goal_mat
-	gv.position = Vector3(gx, 0.04, gz)
-	root.add_child(gv)
+		# Goal visual marker (glowing gold pad)
+		var gv := MeshInstance3D.new()
+		gv.mesh = goal_mesh
+		gv.material_override = goal_mat
+		gv.position = Vector3(gx, 0.04, gz)
+		root.add_child(gv)
 
 	# ── Death zone (catch falling marble) ─────────────────────────────────────
 	var total_w := C * CELL

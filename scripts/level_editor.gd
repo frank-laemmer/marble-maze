@@ -50,6 +50,8 @@ var level_tilt_x: int = 0  # degrees around X axis; stored as !tilt=x,z
 var level_tilt_z: int = 0  # degrees around Z axis
 var level_marble_type: String = "sphere"  # stored as !marble=; "sphere"|"dice"
 var level_marble_size: float = 1.0        # stored as !marble_size=; 0.1–5.0
+var level_mode: String = "normal"         # stored as !mode=; "normal"|"inverted"|"drunk"
+var level_show_minimap: bool = false      # stored as !minimap=show (omitted when false)
 var has_start: bool = false
 var has_end:   bool = false
 
@@ -65,6 +67,8 @@ var _tilt_x_spin: SpinBox
 var _tilt_z_spin: SpinBox
 var _marble_option: OptionButton
 var _marble_size_spin: SpinBox
+var _mode_option: OptionButton
+var _minimap_check: CheckBox
 var _rows_spin: SpinBox
 var _cols_spin: SpinBox
 var _tile_buttons: Array = []
@@ -106,21 +110,23 @@ func set_cell(row: int, col: int, tile: int) -> void:
 	if row < 0 or row >= grid_rows or col < 0 or col >= grid_cols:
 		return
 
-	# Enforce single-instance tiles
-	if tile == TileType.START and has_start:
-		_clear_tile_type(TileType.START)
-	if tile == TileType.END and has_end:
-		_clear_tile_type(TileType.END)
-
 	var old: int = grid[row][col]
-	if old == TileType.START: has_start = false
-	if old == TileType.END:   has_end   = false
-
 	grid[row][col] = tile
-	if tile == TileType.START: has_start = true
-	if tile == TileType.END:   has_end   = true
+
+	# Recount whenever a start or end tile is added or removed
+	if tile == TileType.START or old == TileType.START:
+		has_start = _count_tile_type(TileType.START) > 0
+	if tile == TileType.END or old == TileType.END:
+		has_end = _count_tile_type(TileType.END) > 0
 
 	_refresh_status()
+
+func _count_tile_type(tile: int) -> int:
+	var n := 0
+	for r in grid_rows:
+		for c in grid_cols:
+			if grid[r][c] == tile: n += 1
+	return n
 
 func _clear_tile_type(tile: int) -> void:
 	for r in grid_rows:
@@ -160,6 +166,10 @@ func _level_to_string() -> String:
 		lines.append("!marble=" + level_marble_type)
 	if level_marble_size != 1.0:
 		lines.append("!marble_size=" + str(snappedf(level_marble_size, 0.01)))
+	if level_mode != "normal":
+		lines.append("!mode=" + level_mode)
+	if level_show_minimap:
+		lines.append("!minimap=show")
 	# Write grid rows
 	for row in grid:
 		var line := ""
@@ -183,6 +193,8 @@ func _load_from_string(content: String) -> void:
 	level_tilt_z = 0
 	level_marble_type = "sphere"
 	level_marble_size = 1.0
+	level_mode = "normal"
+	level_show_minimap = false
 
 	var rows: Array = []
 	for line in content.split("\n"):
@@ -200,6 +212,8 @@ func _load_from_string(content: String) -> void:
 						level_tilt_z = tp[1].to_int() if tp.size() > 1 else 0
 					"marble":      level_marble_type = kv[1]
 					"marble_size": level_marble_size = kv[1].to_float()
+					"mode":        level_mode = kv[1]
+					"minimap":     level_show_minimap = (kv[1] == "show")
 		else:
 			# Grid row — strip spaces/tabs for backward compat with "S # . #" format.
 			var stripped := ""
@@ -232,8 +246,11 @@ func _load_from_string(content: String) -> void:
 	if _tilt_x_spin: _tilt_x_spin.value = level_tilt_x
 	if _tilt_z_spin: _tilt_z_spin.value = level_tilt_z
 	if _marble_option:
-		_marble_option.selected = ({"sphere": 0, "dice": 1} as Dictionary).get(level_marble_type, 0) as int
+		_marble_option.selected = ({"sphere": 0, "dice": 1, "glass": 2, "rubber": 3} as Dictionary).get(level_marble_type, 0) as int
 	if _marble_size_spin: _marble_size_spin.value = level_marble_size
+	if _mode_option:
+		_mode_option.selected = ({"normal": 0, "inverted": 1, "drunk": 2} as Dictionary).get(level_mode, 0) as int
+	if _minimap_check: _minimap_check.button_pressed = level_show_minimap
 	if _rows_spin:  _rows_spin.value  = grid_rows
 	if _cols_spin:  _cols_spin.value  = grid_cols
 	_sync_canvas()
@@ -283,7 +300,7 @@ func _build_ui() -> void:
 
 func _build_toolbar() -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(0, 96)
+	panel.custom_minimum_size = Vector2(0, 128)
 	_panel_bg(panel, Color(0.12, 0.12, 0.18))
 
 	var rows_vbox := VBoxContainer.new()
@@ -297,11 +314,11 @@ func _build_toolbar() -> PanelContainer:
 
 	_hspace(row1, 6)
 	for pair in [
-		["New",    Color(0.24, 0.34, 0.54), _on_new],
-		["Load",   Color(0.24, 0.34, 0.54), _on_load],
-		["Save",   Color(0.18, 0.52, 0.28), _on_save],
-		["Test",   Color(0.52, 0.34, 0.14), _on_play],
-		["Menu",   Color(0.32, 0.22, 0.40), _on_back],
+		["New",  Color(0.24, 0.34, 0.54), _on_new],
+		["Load", Color(0.24, 0.34, 0.54), _on_load],
+		["Save", Color(0.18, 0.52, 0.28), _on_save],
+		["Test", Color(0.52, 0.34, 0.14), _on_play],
+		["Menu", Color(0.32, 0.22, 0.40), _on_back],
 	]:
 		var b := _btn(pair[0], pair[1])
 		b.pressed.connect(pair[2])
@@ -348,7 +365,7 @@ func _build_toolbar() -> PanelContainer:
 	_timer_spin.value_changed.connect(func(v: float): level_timer = int(v))
 	row1.add_child(_timer_spin)
 
-	# ── Row 2: level parameters + grid size + zoom ────────────────────────────
+	# ── Row 2: level parameters ───────────────────────────────────────────────
 	var row2 := HBoxContainer.new()
 	row2.alignment = BoxContainer.ALIGNMENT_BEGIN
 	rows_vbox.add_child(row2)
@@ -357,24 +374,17 @@ func _build_toolbar() -> PanelContainer:
 	_lbl(row2, "Tilt X:")
 	_hspace(row2, 4)
 	_tilt_x_spin = SpinBox.new()
-	_tilt_x_spin.min_value = -60
-	_tilt_x_spin.max_value = 60
-	_tilt_x_spin.step = 1
-	_tilt_x_spin.value = level_tilt_x
-	_tilt_x_spin.suffix = "°"
+	_tilt_x_spin.min_value = -60; _tilt_x_spin.max_value = 60; _tilt_x_spin.step = 1
+	_tilt_x_spin.value = level_tilt_x; _tilt_x_spin.suffix = "°"
 	_tilt_x_spin.custom_minimum_size = Vector2(74, 0)
 	_tilt_x_spin.value_changed.connect(func(v: float): level_tilt_x = int(v))
 	row2.add_child(_tilt_x_spin)
-	_hspace(row2, 8)
-
+	_hspace(row2, 6)
 	_lbl(row2, "Z:")
 	_hspace(row2, 4)
 	_tilt_z_spin = SpinBox.new()
-	_tilt_z_spin.min_value = -60
-	_tilt_z_spin.max_value = 60
-	_tilt_z_spin.step = 1
-	_tilt_z_spin.value = level_tilt_z
-	_tilt_z_spin.suffix = "°"
+	_tilt_z_spin.min_value = -60; _tilt_z_spin.max_value = 60; _tilt_z_spin.step = 1
+	_tilt_z_spin.value = level_tilt_z; _tilt_z_spin.suffix = "°"
 	_tilt_z_spin.custom_minimum_size = Vector2(74, 0)
 	_tilt_z_spin.value_changed.connect(func(v: float): level_tilt_z = int(v))
 	row2.add_child(_tilt_z_spin)
@@ -385,60 +395,83 @@ func _build_toolbar() -> PanelContainer:
 	_marble_option = OptionButton.new()
 	_marble_option.add_item("Sphere", 0)
 	_marble_option.add_item("Dice",   1)
+	_marble_option.add_item("Glass",  2)
+	_marble_option.add_item("Rubber", 3)
 	_marble_option.selected = 0
 	_marble_option.custom_minimum_size = Vector2(86, 0)
 	_marble_option.item_selected.connect(func(idx: int):
-		level_marble_type = ["sphere", "dice"][idx]
+		level_marble_type = ["sphere", "dice", "glass", "rubber"][idx]
 		_refresh_status())
 	row2.add_child(_marble_option)
-	_hspace(row2, 8)
-
+	_hspace(row2, 6)
 	_lbl(row2, "Size:")
 	_hspace(row2, 4)
 	_marble_size_spin = SpinBox.new()
-	_marble_size_spin.min_value = 0.1
-	_marble_size_spin.max_value = 5.0
-	_marble_size_spin.step = 0.1
-	_marble_size_spin.value = 1.0
-	_marble_size_spin.custom_minimum_size = Vector2(74, 0)
+	_marble_size_spin.min_value = 0.1; _marble_size_spin.max_value = 5.0; _marble_size_spin.step = 0.1
+	_marble_size_spin.value = 1.0; _marble_size_spin.custom_minimum_size = Vector2(74, 0)
 	_marble_size_spin.value_changed.connect(func(v: float):
-		level_marble_size = v
-		_refresh_status())
+		level_marble_size = v; _refresh_status())
 	row2.add_child(_marble_size_spin)
 	_hspace(row2, 14)
 
-	_lbl(row2, "Grid:")
+	_lbl(row2, "Mode:")
 	_hspace(row2, 4)
+	_mode_option = OptionButton.new()
+	_mode_option.add_item("Normal",   0)
+	_mode_option.add_item("Inverted", 1)
+	_mode_option.add_item("Drunk",    2)
+	_mode_option.selected = 0
+	_mode_option.custom_minimum_size = Vector2(96, 0)
+	_mode_option.item_selected.connect(func(idx: int):
+		level_mode = ["normal", "inverted", "drunk"][idx])
+	row2.add_child(_mode_option)
+	_hspace(row2, 14)
+
+	_minimap_check = CheckBox.new()
+	_minimap_check.text = "Minimap"
+	_minimap_check.button_pressed = false
+	_minimap_check.add_theme_color_override("font_color", Color(0.75, 0.75, 0.85))
+	_minimap_check.toggled.connect(func(on: bool): level_show_minimap = on)
+	row2.add_child(_minimap_check)
+
+	# ── Row 3: grid size + zoom ───────────────────────────────────────────────
+	var row3 := HBoxContainer.new()
+	row3.alignment = BoxContainer.ALIGNMENT_BEGIN
+	rows_vbox.add_child(row3)
+
+	_hspace(row3, 6)
+	_lbl(row3, "Grid:")
+	_hspace(row3, 4)
 	_rows_spin = SpinBox.new()
 	_rows_spin.min_value = MIN_DIM; _rows_spin.max_value = MAX_ROWS
 	_rows_spin.value = grid_rows; _rows_spin.custom_minimum_size = Vector2(66, 0)
-	row2.add_child(_rows_spin)
-	_lbl(row2, "x")
+	row3.add_child(_rows_spin)
+	_lbl(row3, "x")
 	_cols_spin = SpinBox.new()
 	_cols_spin.min_value = MIN_DIM; _cols_spin.max_value = MAX_COLS
 	_cols_spin.value = grid_cols; _cols_spin.custom_minimum_size = Vector2(66, 0)
-	row2.add_child(_cols_spin)
-	_hspace(row2, 4)
+	row3.add_child(_cols_spin)
+	_hspace(row3, 4)
 	var apply := _btn("Apply", Color(0.28, 0.38, 0.58))
 	apply.pressed.connect(func(): _resize_grid(int(_rows_spin.value), int(_cols_spin.value)))
-	row2.add_child(apply)
-	_hspace(row2, 14)
+	row3.add_child(apply)
+	_hspace(row3, 14)
 
-	_lbl(row2, "Zoom:")
-	_hspace(row2, 4)
+	_lbl(row3, "Zoom:")
+	_hspace(row3, 4)
 	var z_out := _btn("-", Color(0.22, 0.22, 0.32))
 	z_out.custom_minimum_size = Vector2(34, 0)
 	z_out.pressed.connect(_zoom_out)
-	row2.add_child(z_out)
+	row3.add_child(z_out)
 	_cell_size_label = Label.new(); _cell_size_label.text = "20px"
 	_cell_size_label.custom_minimum_size = Vector2(44, 0)
 	_cell_size_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_cell_size_label.add_theme_color_override("font_color", Color(0.8, 0.8, 0.9))
-	row2.add_child(_cell_size_label)
+	row3.add_child(_cell_size_label)
 	var z_in := _btn("+", Color(0.22, 0.22, 0.32))
 	z_in.custom_minimum_size = Vector2(34, 0)
 	z_in.pressed.connect(_zoom_in)
-	row2.add_child(z_in)
+	row3.add_child(z_in)
 
 	return panel
 
@@ -506,7 +539,7 @@ func _build_palette() -> PanelContainer:
 			_style_tile_btn(b, i, i == current_tool)
 
 	var hint := Label.new()
-	hint.text = "\nLMB paint\nRMB erase\n\nOne Start\n& one End."
+	hint.text = "\nLMB paint\nRMB erase\n\nMultiple S\n& G allowed."
 	hint.add_theme_color_override("font_color", Color(0.48, 0.48, 0.58))
 	hint.add_theme_font_size_override("font_size", 12)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD
@@ -628,6 +661,7 @@ func _on_new() -> void:
 	level_tilt_z = 0
 	level_marble_type = "sphere"
 	level_marble_size = 1.0
+	level_mode = "normal"
 	if _name_edit:  _name_edit.text  = level_name
 	if _title_edit: _title_edit.text = level_title
 	if _timer_spin: _timer_spin.value = level_timer
@@ -635,6 +669,9 @@ func _on_new() -> void:
 	if _tilt_z_spin: _tilt_z_spin.value = level_tilt_z
 	if _marble_option:    _marble_option.selected = 0
 	if _marble_size_spin: _marble_size_spin.value = 1.0
+	if _mode_option:      _mode_option.selected    = 0
+	level_show_minimap = false
+	if _minimap_check:    _minimap_check.button_pressed = false
 	_sync_canvas()
 	_refresh_status()
 

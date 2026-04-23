@@ -1,9 +1,10 @@
 extends CanvasLayer
 
-@onready var timer_label:   Label     = $TimerLabel
-@onready var overlay:       Control   = $Overlay
-@onready var overlay_bg:    ColorRect = $Overlay/ColorRect
-@onready var overlay_label: Label     = $Overlay/OverlayLabel
+@onready var timer_label:    Label     = $TimerLabel
+@onready var overlay:        Control   = $Overlay
+@onready var overlay_bg:     ColorRect = $Overlay/ColorRect
+@onready var overlay_label:  Label     = $Overlay/OverlayLabel
+@onready var minimap_panel:  Control   = $MinimapPanel
 
 var _key_bar:    Control  # outer container (shown/hidden)
 var _key_icons:  HBoxContainer
@@ -11,6 +12,7 @@ var _key_icons:  HBoxContainer
 
 func _ready() -> void:
 	overlay.hide()
+	minimap_panel.visible = LevelLoader.level_show_minimap
 	_build_key_bar()
 
 	var lm := get_tree().get_first_node_in_group("level_manager")

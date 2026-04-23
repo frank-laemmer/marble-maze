@@ -39,17 +39,22 @@ func _enter_entry_mode() -> void:
 	time_changed.emit(time_remaining)
 
 func _setup_connections() -> void:
-	var sm := get_tree().get_first_node_in_group("start_marker")
-	_start_pos = sm.global_position if sm else marble.global_position
+	# marble.global_position is already set by game.gd before this deferred call
+	_start_pos = marble.global_position
 	_start_rot  = marble.quaternion
 
-	var goal := get_tree().get_first_node_in_group("goal_zone")
-	if goal:
+	for goal in get_tree().get_nodes_in_group("goal_zone"):
 		goal.reached.connect(_on_goal_reached)
 
 	var death := get_tree().get_first_node_in_group("death_zone")
 	if death:
 		death.body_entered.connect(_on_death_zone)
+
+	if marble.has_signal("glass_shattered"):
+		marble.glass_shattered.connect(func():
+			_respawn()
+			marble.restore_glass()
+		)
 
 	if GameState.FEATURE_KEYS_DOORS:
 		for key in get_tree().get_nodes_in_group("key_item"):

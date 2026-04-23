@@ -57,14 +57,6 @@ func _build_ui() -> void:
 	# ── 3D marble background ───────────────────────────────────────────────────
 	add_child(_build_bg_viewport())
 
-	# ── Left panel backdrop ────────────────────────────────────────────────────
-	var panel_bg := ColorRect.new()
-	panel_bg.color = Color(0.03, 0.03, 0.07, 0.91)
-	panel_bg.anchor_left   = 0.0; panel_bg.anchor_right  = 0.0
-	panel_bg.anchor_top    = 0.0; panel_bg.anchor_bottom = 1.0
-	panel_bg.offset_right  = 540
-	add_child(panel_bg)
-
 	# ── Menu column ────────────────────────────────────────────────────────────
 	var col := VBoxContainer.new()
 	col.anchor_left   = 0.0; col.anchor_right  = 0.0
@@ -77,16 +69,20 @@ func _build_ui() -> void:
 	var title := Label.new()
 	title.text = "Marble Maze"
 	title.add_theme_font_override("font", _make_font(700))
-	title.add_theme_font_size_override("font_size", 64)
+	title.add_theme_font_size_override("font_size", 76)
 	title.add_theme_color_override("font_color", Color(0.92, 0.88, 1.0))
+	title.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
+	title.add_theme_constant_override("outline_size", 5)
 	col.add_child(title)
 
 	_vgap(col, 5)
 
 	var sub := Label.new()
 	sub.text = "A 3D marble maze game by Claude, Frank, Martha & Falk"
-	sub.add_theme_font_size_override("font_size", 18)
-	sub.add_theme_color_override("font_color", Color(0.36, 0.36, 0.52))
+	sub.add_theme_font_size_override("font_size", 22)
+	sub.add_theme_color_override("font_color", Color(0.60, 0.62, 0.82))
+	sub.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.85))
+	sub.add_theme_constant_override("outline_size", 4)
 	col.add_child(sub)
 
 	_vgap(col, 60)
@@ -115,11 +111,13 @@ func _build_ui() -> void:
 func _big_btn(label: String) -> Button:
 	var b := Button.new()
 	b.text = label
-	b.custom_minimum_size = Vector2(0, 52)
+	b.custom_minimum_size = Vector2(0, 60)
 	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	b.add_theme_font_override("font", _make_font(600))
-	b.add_theme_font_size_override("font_size", 23)
-	b.add_theme_color_override("font_color", Color(0.82, 0.82, 0.94))
+	b.add_theme_font_size_override("font_size", 28)
+	b.add_theme_color_override("font_color", Color(0.92, 0.92, 1.0))
+	b.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.9))
+	b.add_theme_constant_override("outline_size", 4)
 	b.focus_mode = Control.FOCUS_ALL
 
 	var s := StyleBoxFlat.new()

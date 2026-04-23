@@ -48,9 +48,10 @@ func _ready() -> void:
 		level.rotation_degrees.x = LevelLoader.level_tilt_x
 		level.rotation_degrees.z = LevelLoader.level_tilt_z
 
-	# Place marble at the start marker (groups populated during add_child above)
-	var sm := get_tree().get_first_node_in_group("start_marker")
-	if sm:
+	# Place marble at a randomly chosen start marker (groups populated during add_child above)
+	var start_markers := get_tree().get_nodes_in_group("start_marker")
+	if not start_markers.is_empty():
+		var sm: Node3D = start_markers[randi() % start_markers.size()]
 		marble.global_position = sm.global_position
 		marble.linear_velocity  = Vector3.ZERO
 		marble.angular_velocity = Vector3.ZERO

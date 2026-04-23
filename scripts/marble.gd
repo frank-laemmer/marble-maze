@@ -9,6 +9,19 @@ const UPHILL_PENALTY: float = 1.7     # scales how much slope gravity resists up
 const JUMP_BUFFER_FRAMES: int = 12  # frames a buffered jump input stays valid
 const COYOTE_FRAMES: int = 5        # frames after leaving ground where jump still works
 
+# Drunk mode
+const DRUNK_INPUT_LERP: float = 1.4   # raw → smoothed input lerp rate (units/s); low = sluggish
+const DRUNK_FRICTION:   float = 0.30  # low friction so the marble keeps sliding longer
+
+# Glass mode
+const GLASS_BREAK_VEL_CHANGE: float = 4.5  # m/s horizontal speed change in one frame that shatters
+const GLASS_MIN_SPEED:        float = 3.5  # m/s minimum pre-collision horizontal speed
+
+# Rubber mode
+const RUBBER_JUMP_IMPULSE:   float = 17.0  # unused now (_can_jump = false), kept for reference
+const RUBBER_BOUNCE:         float = 0.82  # restitution — bouncy off walls, still settles on floor
+const RUBBER_SETTLE_VEL:     float = 2.2   # upward velocity below this is killed when grounded
+
 const CAM_ROTATE_SPEED: float = 2.2    # radians/s — yaw
 const CAM_PITCH_SPEED: float = 1.0     # radians/s — pitch
 const CAM_PITCH_MIN: float = -1.4      # steepest (most overhead)
@@ -34,6 +47,16 @@ var _coyote_frames: int = 0
 var _was_grounded: bool = false
 var _air_flat_vel: Vector3 = Vector3.ZERO  # horizontal velocity while airborne
 var _is_dice: bool = false
+var _drunk_input: Vector2 = Vector2.ZERO   # smoothed input accumulator for drunk mode
+
+var _is_glass:        bool    = false
+var _glass_broken:    bool    = false
+var _prev_horiz_vel:  Vector3 = Vector3.ZERO
+var _jump_impulse:    float   = JUMP_IMPULSE
+var _can_jump:        bool    = true
+var _is_rubber:       bool    = false
+
+signal glass_shattered
 
 ## Set by level_manager during level-entry (preview) mode.
 ## Camera rotation still works; movement and jumping are suppressed.
@@ -72,7 +95,16 @@ func _ready() -> void:
 	match LevelLoader.level_marble_type:
 		"dice":    _setup_dice()
 		"pyramid": _setup_pyramid()
+		"glass":   _setup_glass()
+		"rubber":  _setup_rubber()
 		_:         _setup_sphere()
+
+	if LevelLoader.level_mode == "drunk" and not _is_dice:
+		# Override friction so the marble slides longer when the player lets go.
+		var drunk_mat := PhysicsMaterial.new()
+		drunk_mat.bounce   = 0.22
+		drunk_mat.friction = DRUNK_FRICTION
+		physics_material_override = drunk_mat
 
 	var s := LevelLoader.level_marble_size
 	_ground_ray.target_position = Vector3(0.0, -1.4 * s, 0.0)
@@ -168,6 +200,217 @@ func _setup_pyramid() -> void:
 	_mesh.material_override = mat
 
 
+func _setup_glass() -> void:
+	_is_glass = true
+	var s := LevelLoader.level_marble_size
+
+	var sphere_mesh := SphereMesh.new()
+	sphere_mesh.radius = 0.6 * s
+	sphere_mesh.height = 1.2 * s
+	sphere_mesh.radial_segments = 48
+	sphere_mesh.rings = 24
+	_mesh.mesh = sphere_mesh
+
+	var mat := StandardMaterial3D.new()
+	mat.transparency        = BaseMaterial3D.TRANSPARENCY_ALPHA_DEPTH_PRE_PASS
+	mat.cull_mode           = BaseMaterial3D.CULL_DISABLED
+	mat.albedo_color        = Color(0.80, 0.92, 1.0, 0.14)
+	mat.metallic            = 0.0
+	mat.roughness           = 0.0
+	mat.rim_enabled         = true
+	mat.rim                 = 1.0
+	mat.rim_tint            = 0.05
+	mat.refraction_enabled  = true
+	mat.refraction_scale    = 0.07
+	_mesh.material_override = mat
+
+	var sphere_shp := SphereShape3D.new()
+	sphere_shp.radius = 0.6 * s
+	_col.shape = sphere_shp
+
+	var glass_phys := PhysicsMaterial.new()
+	glass_phys.bounce   = 0.05
+	glass_phys.friction = 0.6
+	physics_material_override = glass_phys
+
+
+func _setup_rubber() -> void:
+	_jump_impulse = RUBBER_JUMP_IMPULSE
+	_can_jump     = false
+	_is_rubber    = true
+	var s := LevelLoader.level_marble_size
+
+	var sphere_mesh := SphereMesh.new()
+	sphere_mesh.radius          = 0.6 * s
+	sphere_mesh.height          = 1.2 * s
+	sphere_mesh.radial_segments = 36
+	sphere_mesh.rings           = 18
+	_mesh.mesh = sphere_mesh
+
+	# Procedural shader: deep purple base with scattered green sprinkles
+	var shader := Shader.new()
+	shader.code = """
+shader_type spatial;
+
+float hash2(vec2 p) {
+    p = fract(p * vec2(127.1, 311.7));
+    p += dot(p, p + 74.9);
+    return fract(p.x * p.y);
+}
+
+void fragment() {
+    vec2 tiled = UV * 9.0;
+    vec2 cell  = floor(tiled);
+    vec2 fuv   = fract(tiled);
+
+    float sprinkle = 0.0;
+    for (int xi = -1; xi <= 1; xi++) {
+        for (int yi = -1; yi <= 1; yi++) {
+            vec2 nc = cell + vec2(float(xi), float(yi));
+            if (hash2(nc) < 0.22) {
+                vec2 center = vec2(hash2(nc + vec2(17.3, 0.0)),
+                                   hash2(nc + vec2(0.0,  5.7)));
+                float d = length(fuv - vec2(float(xi), float(yi)) - center);
+                sprinkle = max(sprinkle, 1.0 - smoothstep(0.10, 0.18, d));
+            }
+        }
+    }
+
+    vec3 base_col = vec3(0.46, 0.08, 0.66);
+    vec3 spk_col  = vec3(0.10, 0.84, 0.32);
+    ALBEDO    = mix(base_col, spk_col, sprinkle);
+    ROUGHNESS = 0.70;
+    METALLIC  = 0.0;
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = shader
+	_mesh.material_override = mat
+
+	var sphere_shp := SphereShape3D.new()
+	sphere_shp.radius = 0.6 * s
+	_col.shape = sphere_shp
+
+	var rubber_phys := PhysicsMaterial.new()
+	rubber_phys.bounce   = RUBBER_BOUNCE
+	rubber_phys.friction = 0.35
+	physics_material_override = rubber_phys
+
+
+## Called by level_manager after respawning a glass marble.
+func restore_glass() -> void:
+	_glass_broken   = false
+	_prev_horiz_vel = Vector3.ZERO
+	_mesh.show()
+	freeze = false
+
+
+func _spawn_shatter_particles() -> void:
+	var pos := global_position
+	var s   := LevelLoader.level_marble_size
+
+	# ── Flash sphere — expands and fades over 0.28 s ──────────────────────────
+	var flash      := MeshInstance3D.new()
+	var flash_mesh := SphereMesh.new()
+	flash_mesh.radius          = 0.6 * s
+	flash_mesh.height          = 1.2 * s
+	flash_mesh.radial_segments = 16
+	flash_mesh.rings           = 8
+	var flash_mat := StandardMaterial3D.new()
+	flash_mat.transparency              = BaseMaterial3D.TRANSPARENCY_ALPHA
+	flash_mat.albedo_color              = Color(0.80, 0.93, 1.0, 0.9)
+	flash_mat.emission_enabled          = true
+	flash_mat.emission                  = Color(0.45, 0.72, 1.0)
+	flash_mat.emission_energy_multiplier = 5.0
+	flash.mesh              = flash_mesh
+	flash.material_override = flash_mat
+	get_parent().add_child(flash)
+	flash.global_position = pos
+	var tw := flash.create_tween()
+	tw.set_parallel(true)
+	tw.tween_property(flash, "scale", Vector3.ONE * 6.0 * s, 0.28)
+	tw.tween_method(func(a: float): flash_mat.albedo_color              = Color(0.80, 0.93, 1.0, a), 0.9, 0.0, 0.28)
+	tw.tween_method(func(e: float): flash_mat.emission_energy_multiplier = e,                        5.0, 0.0, 0.20)
+	get_tree().create_timer(0.30).timeout.connect(flash.queue_free)
+
+	# ── Glass shards — large flat fragments tumbling outward ──────────────────
+	var shards := CPUParticles3D.new()
+	shards.one_shot              = true
+	shards.amount                = 42
+	shards.lifetime              = 1.6
+	shards.explosiveness         = 0.95
+	shards.spread                = 180.0
+	shards.direction             = Vector3(0.0, 0.35, 0.0)
+	shards.gravity               = Vector3(0.0, -6.0, 0.0)
+	shards.initial_velocity_min  = 3.5
+	shards.initial_velocity_max  = 11.0
+	shards.angular_velocity_min  = -360.0
+	shards.angular_velocity_max  =  360.0
+	shards.scale_amount_min      = 0.30 * s
+	shards.scale_amount_max      = 0.85 * s
+
+	var shard_grad := Gradient.new()
+	shard_grad.set_color(0, Color(0.82, 0.94, 1.0, 1.0))
+	shard_grad.set_color(1, Color(0.82, 0.94, 1.0, 0.0))
+	shards.color_ramp = shard_grad
+
+	var shard_mesh := BoxMesh.new()
+	shard_mesh.size = Vector3(0.30, 0.04, 0.44)
+	var shard_mat := StandardMaterial3D.new()
+	shard_mat.albedo_color               = Color(1.0, 1.0, 1.0, 0.9)
+	shard_mat.transparency               = BaseMaterial3D.TRANSPARENCY_ALPHA
+	shard_mat.roughness                  = 0.0
+	shard_mat.rim_enabled                = true
+	shard_mat.rim                        = 0.9
+	shard_mat.vertex_color_use_as_albedo = true
+	shard_mesh.surface_set_material(0, shard_mat)
+	shards.mesh = shard_mesh
+
+	get_parent().add_child(shards)
+	shards.global_position = pos
+	shards.emitting = true
+	get_tree().create_timer(3.0).timeout.connect(shards.queue_free)
+
+	# ── Bright sparkles — fast emissive points that streak outward ────────────
+	var sparks := CPUParticles3D.new()
+	sparks.one_shot             = true
+	sparks.amount               = 20
+	sparks.lifetime             = 0.65
+	sparks.explosiveness        = 1.0
+	sparks.spread               = 180.0
+	sparks.gravity              = Vector3(0.0, -4.0, 0.0)
+	sparks.initial_velocity_min = 6.0
+	sparks.initial_velocity_max = 16.0
+	sparks.scale_amount_min     = 0.10
+	sparks.scale_amount_max     = 0.22
+
+	var spark_mesh := SphereMesh.new()
+	spark_mesh.radius          = 0.12
+	spark_mesh.height          = 0.24
+	spark_mesh.radial_segments = 6
+	spark_mesh.rings           = 3
+	var spark_mat := StandardMaterial3D.new()
+	spark_mat.albedo_color               = Color(0.88, 0.97, 1.0)
+	spark_mat.emission_enabled           = true
+	spark_mat.emission                   = Color(0.55, 0.82, 1.0)
+	spark_mat.emission_energy_multiplier = 6.0
+	spark_mesh.surface_set_material(0, spark_mat)
+	sparks.mesh = spark_mesh
+
+	get_parent().add_child(sparks)
+	sparks.global_position = pos
+	sparks.emitting = true
+	get_tree().create_timer(2.0).timeout.connect(sparks.queue_free)
+
+
+func _break_glass() -> void:
+	freeze = true
+	_mesh.hide()
+	_spawn_shatter_particles()
+	await get_tree().create_timer(0.55).timeout
+	glass_shattered.emit()
+
+
 ## Called by game.gd after the touch joystick node has been added to the tree.
 func set_touch_input(node) -> void:
 	_touch_input = node
@@ -202,7 +445,7 @@ func end_flyover() -> void:
 func _input(event: InputEvent) -> void:
 	if entry_mode:
 		return
-	if event.is_action_pressed("jump"):
+	if _can_jump and event.is_action_pressed("jump"):
 		_jump_buffered = true
 		_jump_buffer_frames = JUMP_BUFFER_FRAMES
 
@@ -213,6 +456,20 @@ func _process(_delta: float) -> void:
 
 
 func _physics_process(delta: float) -> void:
+	# ── Glass break detection — wall impact = sudden horizontal velocity change ─
+	if _is_glass and not _glass_broken and not freeze:
+		var cur_horiz := Vector3(linear_velocity.x, 0.0, linear_velocity.z)
+		if _prev_horiz_vel.length() > GLASS_MIN_SPEED \
+				and (cur_horiz - _prev_horiz_vel).length() > GLASS_BREAK_VEL_CHANGE:
+			_glass_broken = true   # guard before deferred call
+			call_deferred("_break_glass")
+		_prev_horiz_vel = cur_horiz
+
+	# ── Rubber: kill tiny upward bounces when grounded so the ball settles ─────
+	if _is_rubber and _ground_ray.is_colliding() \
+			and linear_velocity.y > 0.0 and linear_velocity.y < RUBBER_SETTLE_VEL:
+		linear_velocity.y = 0.0
+
 	# ── Flyover animation (runs during entry countdown) ────────────────────────
 	if _flyover_active:
 		_flyover_elapsed += delta
@@ -249,7 +506,7 @@ func _physics_process(delta: float) -> void:
 			return   # marble is frozen; skip movement and jump
 
 	# ── Touch jump (tap on knob) ───────────────────────────────────────────────
-	if _touch_input and _touch_input.consume_jump():
+	if _can_jump and _touch_input and _touch_input.consume_jump():
 		_jump_buffered      = true
 		_jump_buffer_frames = JUMP_BUFFER_FRAMES
 
@@ -277,7 +534,7 @@ func _physics_process(delta: float) -> void:
 
 	# ── Jump ───────────────────────────────────────────────────────────────────
 	if _jump_buffered and _coyote_frames > 0:
-		linear_velocity.y = JUMP_IMPULSE
+		linear_velocity.y = _jump_impulse
 		_jump_buffered = false
 		_coyote_frames = 0
 
@@ -294,18 +551,34 @@ func _physics_process(delta: float) -> void:
 		fwd_in = clampf(fwd_in + tv.y, -1.0, 1.0)
 		str_in = clampf(str_in + tv.x, -1.0, 1.0)
 
+	var mode := LevelLoader.level_mode
+
+	# Inverted: flip all directional input
+	if mode == "inverted":
+		fwd_in = -fwd_in
+		str_in = -str_in
+
+	# Drunk: slowly lerp toward the actual input so the marble responds sluggishly
+	if mode == "drunk":
+		_drunk_input = _drunk_input.lerp(Vector2(str_in, fwd_in), DRUNK_INPUT_LERP * delta)
+		str_in = _drunk_input.x
+		fwd_in = _drunk_input.y
+
 	var flat := Vector3(linear_velocity.x, 0.0, linear_velocity.z)
 
 	if abs(fwd_in) > 0.01:
 		var dir := forward * fwd_in
 		var tilt_mult := _uphill_force_mult(dir)
-		var mult := tilt_mult if tilt_mult < 1.0 else (COUNTER_STEER_MULT if flat.dot(dir) < 0.0 else 1.0)
+		# No counter-steer braking boost in drunk mode — the marble has to bleed speed through friction alone
+		var use_counter_steer := mode != "drunk"
+		var mult := tilt_mult if tilt_mult < 1.0 else (COUNTER_STEER_MULT if (use_counter_steer and flat.dot(dir) < 0.0) else 1.0)
 		_apply_movement_force(dir * FORCE * mult)
 
 	if abs(str_in) > 0.01:
 		var dir := right * str_in
 		var tilt_mult := _uphill_force_mult(dir)
-		var mult := tilt_mult if tilt_mult < 1.0 else (COUNTER_STEER_MULT if flat.dot(dir) < 0.0 else 1.0)
+		var use_counter_steer := mode != "drunk"
+		var mult := tilt_mult if tilt_mult < 1.0 else (COUNTER_STEER_MULT if (use_counter_steer and flat.dot(dir) < 0.0) else 1.0)
 		_apply_movement_force(dir * FORCE * mult)
 
 	# ── Speed cap ──────────────────────────────────────────────────────────────
