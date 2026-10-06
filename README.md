@@ -77,7 +77,7 @@ It's best played with a game controller. One stick to control the marble, anothe
 ## Credits
 
 - Frank Lämmer 2026
-- Built with Godot 4.6
+- Built with Godot 4.7
 - Coded by Claude Code
 
 ## Dev notes
@@ -86,7 +86,7 @@ I built this to get some experience with agentic coding and game design.
 
 ### Building
 
-Open `project.godot` in Godot 4.6 and press Play.
+Open `project.godot` in Godot 4.7 and press Play.
 
 To export a release, push a version tag:
 

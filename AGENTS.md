@@ -4,11 +4,11 @@ Guidance for coding agents working in this repository.
 
 ## Project Overview
 
-Marble Maze is a 3D marble maze game built with **Godot 4.6** (Forward Plus rendering) and **Jolt Physics**. The primary scripting language is GDScript. All UI is built entirely in code — there are no `.tscn` files for UI scenes; everything is constructed procedurally in `_build_ui()` and similar methods.
+Marble Maze is a 3D marble maze game built with **Godot 4.7** (Forward Plus rendering) and **Jolt Physics**. The primary scripting language is GDScript. All UI is built entirely in code — there are no `.tscn` files for UI scenes; everything is constructed procedurally in `_build_ui()` and similar methods.
 
 ## Common Commands
 
-**Run the game:** Open `project.godot` in Godot 4.6 and press Play. Entry point is `res://scenes/ui/splash_screen.tscn`.
+**Run the game:** Open `project.godot` in Godot 4.7 and press Play. Entry point is `res://scenes/ui/splash_screen.tscn`.
 
 **Test in-editor:** Use the "Test" button inside the level editor scene.
 
@@ -76,7 +76,7 @@ On tilted levels the marble experiences an uphill force penalty: `_uphill_force_
 ### CI / Release
 
 Two GitHub Actions workflows:
-- **`release.yml`** — triggered on version tags; strips the `v` prefix from the tag and patches `application/short_version` and `application/version` in `export_presets.cfg` before export, so the macOS bundle version always matches the tag. Exports all 4 platforms in `barichello/godot-ci:4.6` container, creates a GitHub Release, then a second job pushes to itch.io via `josephbmanley/butler-publish-itchio-action`.
+- **`release.yml`** — triggered on version tags; strips the `v` prefix from the tag and patches `application/short_version` and `application/version` in `export_presets.cfg` before export, so the macOS bundle version always matches the tag. Exports all 4 platforms in `barichello/godot-ci:4.7.2` container, creates a GitHub Release, then a second job pushes to itch.io via `josephbmanley/butler-publish-itchio-action`.
 - **`pages.yml`** — triggered on push to `main`; exports a web build and deploys to `gh-pages` → `https://frank-laemmer.github.io/marble-maze/`.
 
 The `godot-ci` container blocks outbound network — Butler and GitHub Pages deployment must run in a separate job without a container.
