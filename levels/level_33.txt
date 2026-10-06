@@ -1,5 +1,5 @@
 !name=Look and see 2
-!timer=180
+!timer=90
 _____________
 _..._._.V.V._
 _.S.___V___V_

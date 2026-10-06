@@ -1,6 +1,6 @@
 !name=Tilt!
-!timer=180
-!tilt=19
+!timer=90
+!tilt=19,0
 ________
 _...____
 _.S.____
